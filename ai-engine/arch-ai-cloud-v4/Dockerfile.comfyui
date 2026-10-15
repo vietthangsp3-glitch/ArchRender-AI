@@ -1,0 +1,35 @@
+# Tag plus OCI digest verified from the registry on 2026-10-16.
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime@sha256:77f17f843507062875ce8be2a6f76aa6aa3df7f9ef1e31d9d7432f4b0f563dee
+
+ARG COMFYUI_VERSION=v0.36.0
+ARG COMFYUI_COMMIT=ee71d5c4993f29086b27fde1629a945ae48425bf
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    COMFYUI_HOME=/opt/ComfyUI \
+    ARCHRENDER_COMFYUI_COMMIT=${COMFYUI_COMMIT} \
+    ARCHRENDER_TORCH_VERSION=2.6.0 \
+    ARCHRENDER_CUDA_VERSION=12.4 \
+    ARCHRENDER_CUDNN_MAJOR=9
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg git libgl1 libglib2.0-0 tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 archrender \
+    && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin archrender
+
+RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 https://github.com/Comfy-Org/ComfyUI.git "${COMFYUI_HOME}" \
+    && test "$(git -C "${COMFYUI_HOME}" describe --tags --exact-match)" = "${COMFYUI_VERSION}" \
+    && test "$(git -C "${COMFYUI_HOME}" rev-parse HEAD)" = "${COMFYUI_COMMIT}" \
+    && python -m pip install --no-cache-dir -r "${COMFYUI_HOME}/requirements.txt" \
+    && chown -R archrender:archrender "${COMFYUI_HOME}"
+
+COPY --chown=archrender:archrender scripts/start-comfyui.sh /usr/local/bin/start-comfyui
+COPY --chown=archrender:archrender scripts/verify-runtime.py /usr/local/lib/archrender/verify-runtime.py
+RUN chmod 0555 /usr/local/bin/start-comfyui /usr/local/lib/archrender/verify-runtime.py
+
+USER 10001:10001
+WORKDIR /opt/ComfyUI
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/start-comfyui"]
+

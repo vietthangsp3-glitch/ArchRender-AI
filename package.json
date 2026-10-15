@@ -1,0 +1,24 @@
+{
+  "name": "archrender-ai",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "predev": "pnpm db:generate",
+    "dev": "pnpm --filter @archrender/web dev",
+    "prebuild": "pnpm db:generate",
+    "build": "pnpm --filter @archrender/web build",
+    "lint": "pnpm --filter @archrender/web lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:integration": "pnpm --filter @archrender/database test:integration && pnpm --filter @archrender/auth test:integration && pnpm --filter @archrender/projects test:integration && pnpm --filter @archrender/assets test:integration && pnpm --filter @archrender/jobs test:integration",
+    "auth:bootstrap-owner": "pnpm --filter @archrender/auth bootstrap:owner",
+    "db:generate": "pnpm --filter @archrender/database db:generate",
+    "db:validate": "pnpm --filter @archrender/database db:validate",
+    "db:migrate": "pnpm --filter @archrender/database db:migrate",
+    "db:migrate:deploy": "pnpm --filter @archrender/database db:migrate:deploy"
+  }
+}

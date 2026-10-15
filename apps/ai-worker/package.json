@@ -1,0 +1,25 @@
+{
+  "name": "@archrender/ai-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@archrender/ai-engine": "workspace:*",
+    "@archrender/assets": "workspace:*",
+    "@archrender/database": "workspace:*",
+    "@archrender/jobs": "workspace:*",
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,2 @@
+import { Card } from "@/components/ui";
+export default function Loading() { return <div className="space-y-5" aria-label="Đang tải dự án"><div className="h-16 animate-pulse rounded-xl bg-white/[0.035]" /><Card className="h-16 animate-pulse" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <Card key={index} className="h-60 animate-pulse bg-white/[0.025]" />)}</div></div>; }

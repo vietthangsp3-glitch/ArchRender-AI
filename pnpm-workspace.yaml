@@ -1,0 +1,15 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  '@prisma/engines': true
+  argon2: true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - '@aws-sdk/client-s3@3.1151.0'
+  - '@aws-sdk/s3-request-presigner@3.1151.0'

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#dbe9ef"/>
+  <rect y="610" width="1024" height="414" fill="#c8c1aa"/>
+  <polygon points="84,210 470,118 470,655 84,735" fill="#e8e1d3" stroke="#1f2933" stroke-width="12"/>
+  <polygon points="470,118 936,240 936,735 470,655" fill="#d1c5ae" stroke="#1f2933" stroke-width="12"/>
+  <polygon points="84,735 470,655 936,735 512,940" fill="#9fa99d" stroke="#1f2933" stroke-width="12"/>
+  <rect x="180" y="306" width="176" height="278" fill="#7fb0bd" stroke="#1f2933" stroke-width="10"/>
+  <line x1="268" y1="306" x2="268" y2="584" stroke="#f5f2e8" stroke-width="8"/>
+  <line x1="180" y1="445" x2="356" y2="445" stroke="#f5f2e8" stroke-width="8"/>
+  <polygon points="590,315 812,364 812,615 590,580" fill="#648d99" stroke="#1f2933" stroke-width="10"/>
+  <line x1="700" y1="339" x2="700" y2="598" stroke="#f5f2e8" stroke-width="8"/>
+  <line x1="590" y1="447" x2="812" y2="483" stroke="#f5f2e8" stroke-width="8"/>
+  <rect x="430" y="482" width="105" height="202" fill="#594c42" stroke="#1f2933" stroke-width="10"/>
+  <circle cx="710" cy="742" r="70" fill="#557a46" stroke="#1f2933" stroke-width="8"/>
+  <rect x="695" y="742" width="30" height="115" fill="#725640"/>
+  <line x1="512" y1="940" x2="470" y2="655" stroke="#f2eee4" stroke-width="10"/>
+  <line x1="230" y1="870" x2="470" y2="655" stroke="#f2eee4" stroke-width="8"/>
+  <line x1="810" y1="850" x2="470" y2="655" stroke="#f2eee4" stroke-width="8"/>
+</svg>

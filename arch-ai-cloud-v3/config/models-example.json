@@ -1,0 +1,53 @@
+{
+  "models": [
+    {
+      "id": "sdxl-base",
+      "repo": "stabilityai/stable-diffusion-xl-base-1.0",
+      "file": "sd_xl_base_1.0.safetensors",
+      "folder": "checkpoints"
+    },
+    {
+      "id": "sdxl-canny",
+      "repo": "stabilityai/control-lora",
+      "file": "control-LoRAs-rank256/control-lora-canny-rank256.safetensors",
+      "folder": "controlnet"
+    },
+    {
+      "id": "sdxl-depth",
+      "repo": "stabilityai/control-lora",
+      "file": "control-LoRAs-rank256/control-lora-depth-rank256.safetensors",
+      "folder": "controlnet"
+    },
+    {
+      "id": "sdxl-normal",
+      "repo": "Eugeoter/noob-sdxl-controlnet-normal",
+      "file": "diffusion_pytorch_model.fp16.safetensors",
+      "folder": "controlnet",
+      "target_name": "noob-sdxl-controlnet-normal.fp16.safetensors"
+    },
+    {
+      "id": "4x-ultrasharp",
+      "repo": "fofr/comfyui",
+      "file": "upscale_models/4x-UltraSharp.pth",
+      "folder": "upscale_models"
+    },
+    {
+      "id": "wan22-5b",
+      "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "file": "split_files/diffusion_models/wan2.2_i2v_5B_fp16.safetensors",
+      "folder": "diffusion_models"
+    },
+    {
+      "id": "wan22-vae",
+      "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "file": "split_files/vae/wan2.2_vae.safetensors",
+      "folder": "vae"
+    },
+    {
+      "id": "wan-text-encoder",
+      "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "file": "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "folder": "text_encoders"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+node_modules/
+.pnpm-store/
+.next/
+coverage/
+dist/
+*.tsbuildinfo
+packages/database/src/generated/
+.turbo/
+*.log
+.vercel/
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+
+# Local and real-storage acceptance state. These files may contain exact
+# recovery identities and must never be published.
+**/.r2-acceptance/
+**/.recovery/
+*.recovery-manifest.json
+
+# Python local state.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Test runner output.
+test-results/
+playwright-report/
+
+# Private keys and certificates.
+*.pem
+*.key
+*.p12
+*.pfx
+
+# AI weights and local datasets are provisioned outside Git.
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.gguf
+
+.env
+.env.*
+!.env.example
+.DS_Store
+# Phase 3 AI Engine runtime material (models, generated media and operator env).
+ai-engine/arch-ai-cloud-v4/.env
+ai-engine/arch-ai-cloud-v4/runtime/

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "comfyui": {
+    "repository": "https://github.com/Comfy-Org/ComfyUI.git",
+    "release": "v0.36.0",
+    "releaseCommit": "ee71d5c4993f29086b27fde1629a945ae48425bf",
+    "status": "VERIFIED_FROM_OFFICIAL_RELEASE"
+  },
+  "pytorch": {
+    "version": "2.6.0",
+    "cudaRuntime": "12.4",
+    "cudnnMajor": 9,
+    "baseImage": "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime",
+    "baseImageDigest": "sha256:77f17f843507062875ce8be2a6f76aa6aa3df7f9ef1e31d9d7432f4b0f563dee",
+    "compressedBaseLayerBytes": 3314094972
+  },
+  "customNodes": [],
+  "networkPolicy": {
+    "comfyuiPubliclyExposed": false,
+    "paidApiNodesEnabled": false,
+    "runtimeModelDownloadsAllowed": false
+  }
+}

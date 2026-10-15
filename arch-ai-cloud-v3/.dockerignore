@@ -1,0 +1,6 @@
+.git
+workspace/
+*.zip
+__pycache__/
+.env
+.env.*

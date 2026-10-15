@@ -1,0 +1,18 @@
+{
+  "1": {"class_type": "LoadImage", "inputs": {"image": "architecture_input.png"}},
+  "2": {"class_type": "ImageScale", "inputs": {"image": ["1", 0], "upscale_method": "lanczos", "width": 1344, "height": 768, "crop": "center"}},
+  "3": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "sd_xl_base_1.0.safetensors"}},
+  "4": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 1], "text": "photorealistic architectural render, preserve exact structure, correct perspective, realistic materials, natural daylight, premium finish, accurate interior/exterior visualization"}},
+  "5": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["3", 1], "text": "changed structure, distorted perspective, warped architecture, extra windows, extra doors, broken geometry, blurry, low quality, painterly, cartoon, text, watermark"}},
+  "6": {"class_type": "VAEEncode", "inputs": {"pixels": ["2", 0], "vae": ["3", 2]}},
+  "16": {"class_type": "LoadImage", "inputs": {"image": "architecture_depth.png"}},
+  "17": {"class_type": "ImageScale", "inputs": {"image": ["16", 0], "upscale_method": "lanczos", "width": 1344, "height": 768, "crop": "center"}},
+  "18": {"class_type": "ControlNetLoader", "inputs": {"control_net_name": "control-lora-depth-rank256.safetensors"}},
+  "19": {"class_type": "ControlNetApplyAdvanced", "inputs": {"positive": ["4", 0], "negative": ["5", 0], "control_net": ["18", 0], "image": ["17", 0], "strength": 0.78, "start_percent": 0.0, "end_percent": 0.95}},
+  "10": {"class_type": "KSampler", "inputs": {"model": ["3", 0], "positive": ["19", 0], "negative": ["19", 1], "latent_image": ["6", 0], "seed": 12345, "steps": 28, "cfg": 5.5, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 0.26}},
+  "11": {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["3", 2]}},
+  "12": {"class_type": "UpscaleModelLoader", "inputs": {"model_name": "4x-UltraSharp.pth"}},
+  "13": {"class_type": "ImageUpscaleWithModel", "inputs": {"upscale_model": ["12", 0], "image": ["11", 0]}},
+  "14": {"class_type": "ImageScale", "inputs": {"image": ["13", 0], "upscale_method": "lanczos", "width": 3840, "height": 2160, "crop": "center"}},
+  "15": {"class_type": "SaveImage", "inputs": {"images": ["14", 0], "filename_prefix": "arch_depth_4k"}}
+}

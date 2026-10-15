@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T00:00:00.000Z",
+  "models": [
+    {
+      "id": "architecture_image_sdxl",
+      "revision": "sdxl-base-1.0-462165984030d82259a11f4367a4eed129e94a7b",
+      "status": "PENDING_VERIFICATION",
+      "jobTypes": ["IMAGE_RENDER"],
+      "requiredNodeClasses": ["LoadImage", "CheckpointLoaderSimple", "CLIPTextEncode", "VAEEncode", "KSampler", "VAEDecode", "SaveImage"],
+      "estimatedVramMb": 16384,
+      "artifacts": [
+        {
+          "name": "sd_xl_base_1.0.safetensors",
+          "relativePath": "checkpoints/sd_xl_base_1.0.safetensors",
+          "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b",
+          "sourceUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/462165984030d82259a11f4367a4eed129e94a7b/sd_xl_base_1.0.safetensors",
+          "sourceRevision": "462165984030d82259a11f4367a4eed129e94a7b",
+          "sizeBytes": 6938078334,
+          "license": "CreativeML Open RAIL++-M",
+          "licenseUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/462165984030d82259a11f4367a4eed129e94a7b/LICENSE.md",
+          "commercialUse": "PERMITTED_WITH_RESTRICTIONS",
+          "status": "PENDING_VERIFICATION"
+        }
+      ]
+    },
+    {
+      "id": "architecture_image_sdxl_control",
+      "revision": "control-lora-75590eb0e7868d3d0f1581b5126d487b33c7fdb4",
+      "status": "PENDING_VERIFICATION",
+      "jobTypes": ["IMAGE_RENDER"],
+      "requiredNodeClasses": ["LoadImage", "CheckpointLoaderSimple", "CLIPTextEncode", "VAEEncode", "ControlNetLoader", "ControlNetApplyAdvanced", "KSampler", "VAEDecode", "SaveImage"],
+      "estimatedVramMb": 18432,
+      "artifacts": [
+        {
+          "name": "sd_xl_base_1.0.safetensors",
+          "relativePath": "checkpoints/sd_xl_base_1.0.safetensors",
+          "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b",
+          "sourceUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/462165984030d82259a11f4367a4eed129e94a7b/sd_xl_base_1.0.safetensors",
+          "sourceRevision": "462165984030d82259a11f4367a4eed129e94a7b",
+          "sizeBytes": 6938078334,
+          "license": "CreativeML Open RAIL++-M",
+          "licenseUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/462165984030d82259a11f4367a4eed129e94a7b/LICENSE.md",
+          "commercialUse": "PERMITTED_WITH_RESTRICTIONS",
+          "status": "PENDING_VERIFICATION"
+        },
+        {
+          "name": "control-lora-canny-rank128.safetensors",
+          "relativePath": "controlnet/canny-control-lora-rank128.safetensors",
+          "sha256": "56389dbb245ca44de91d662529bd4298abc55ce2318f60bc19454fb72ff68247",
+          "sourceUrl": "https://huggingface.co/stabilityai/control-lora/resolve/75590eb0e7868d3d0f1581b5126d487b33c7fdb4/control-LoRAs-rank128/control-lora-canny-rank128.safetensors",
+          "sourceRevision": "75590eb0e7868d3d0f1581b5126d487b33c7fdb4",
+          "sizeBytes": 395733680,
+          "license": "Stability AI Control-LoRA Community License",
+          "licenseUrl": "https://huggingface.co/stabilityai/control-lora/blob/75590eb0e7868d3d0f1581b5126d487b33c7fdb4/LICENSE.MD",
+          "commercialUse": "PERMITTED_WITH_RESTRICTIONS",
+          "status": "PENDING_VERIFICATION"
+        },
+        {
+          "name": "control-lora-depth-rank128.safetensors",
+          "relativePath": "controlnet/depth-control-lora-rank128.safetensors",
+          "sha256": "37e391757e6c0042faa3795174acbe11a31992252058cfb8bbaccf11073567b4",
+          "sourceUrl": "https://huggingface.co/stabilityai/control-lora/resolve/75590eb0e7868d3d0f1581b5126d487b33c7fdb4/control-LoRAs-rank128/control-lora-depth-rank128.safetensors",
+          "sourceRevision": "75590eb0e7868d3d0f1581b5126d487b33c7fdb4",
+          "sizeBytes": 395729267,
+          "license": "Stability AI Control-LoRA Community License",
+          "licenseUrl": "https://huggingface.co/stabilityai/control-lora/blob/75590eb0e7868d3d0f1581b5126d487b33c7fdb4/LICENSE.MD",
+          "commercialUse": "PERMITTED_WITH_RESTRICTIONS",
+          "status": "PENDING_VERIFICATION"
+        }
+      ]
+    },
+    {
+      "id": "architecture_upscale_realesrgan_x4plus",
+      "revision": "realesrgan-v0.1.0",
+      "status": "PENDING_VERIFICATION",
+      "jobTypes": ["IMAGE_UPSCALE"],
+      "requiredNodeClasses": ["LoadImage", "UpscaleModelLoader", "ImageUpscaleWithModel", "SaveImage"],
+      "estimatedVramMb": 8192,
+      "artifacts": [
+        {
+          "name": "RealESRGAN_x4plus.pth",
+          "relativePath": "upscale_models/RealESRGAN_x4plus.pth",
+          "sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+          "sourceUrl": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
+          "sourceRevision": "4c05b20cb30aded73ed3731848a9fbbf70c7c0ac",
+          "sizeBytes": 67040989,
+          "license": "BSD-3-Clause",
+          "licenseUrl": "https://github.com/xinntao/Real-ESRGAN/blob/0573f32dd04a6ff9dbafff67df23f808dffc8811/LICENSE",
+          "commercialUse": "PERMITTED",
+          "status": "PENDING_VERIFICATION"
+        }
+      ]
+    },
+    {
+      "id": "architecture_video_wan22",
+      "revision": "operator-video-checkpoint-required",
+      "status": "DISABLED",
+      "jobTypes": ["IMAGE_TO_VIDEO"],
+      "requiredNodeClasses": ["LoadImage", "WanImageToVideo", "CreateVideo", "SaveVideo"],
+      "estimatedVramMb": 49152,
+      "artifacts": [
+        {
+          "name": "wan2.2-i2v-a14b-bundle.pending",
+          "relativePath": "diffusion_models/wan2.2-i2v-a14b-bundle.pending",
+          "sha256": null,
+          "sourceUrl": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+          "sourceRevision": null,
+          "sizeBytes": null,
+          "license": "Apache-2.0",
+          "licenseUrl": "https://github.com/Wan-Video/Wan2.2/blob/main/LICENSE.txt",
+          "commercialUse": "PERMITTED",
+          "status": "PENDING_VERIFICATION"
+        }
+      ]
+    }
+  ]
+}

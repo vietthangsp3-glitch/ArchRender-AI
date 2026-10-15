@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "fixture": "synthetic-modern-courtyard",
+  "containsPersonalData": false,
+  "width": 1024,
+  "height": 1024,
+  "inputs": [
+    { "role": "source", "file": "golden-courtyard-source.png", "sizeBytes": 46694, "sha256": "75a84e52527f8847566f484568984708f0b75bcb3c644bc63680d7c6ba25aa4e" },
+    { "role": "canny", "file": "golden-courtyard-canny.png", "sizeBytes": 41774, "sha256": "1a1be4afb4f43c65461008634cc2a07440df13be7001cafe011bea9fe492debd" },
+    { "role": "depth", "file": "golden-courtyard-depth.png", "sizeBytes": 21602, "sha256": "092788dc74abfd0ce71192b10619b7454a0c975b7870d233bb1f3632cd0f7c5c" }
+  ],
+  "manualRubric": {
+    "minimumScore": 8,
+    "maximumScore": 10,
+    "criteria": [
+      "2 points: two building wings and central courtyard remain recognizable",
+      "2 points: primary perspective lines converge toward the central vanishing area",
+      "2 points: left and right window groups remain on their original facade",
+      "2 points: central doorway, tree and paving axes retain relative position",
+      "2 points: no collapsed facade, duplicated opening, impossible geometry or severe artifact"
+    ]
+  },
+  "automatedChecks": [
+    "decoded PNG with declared 1024x1024 dimensions for render outputs",
+    "output SHA-256 differs from source while remaining stable for the recorded seed/workflow",
+    "Canny and depth runs complete with their separately checksummed control map",
+    "RealESRGAN output decodes at exactly 4096x4096",
+    "all staged inputs are deleted by exact workspace, filename and checksum identity"
+  ]
+}

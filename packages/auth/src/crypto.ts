@@ -1,0 +1,13 @@
+import { createHash, createHmac, randomBytes } from "node:crypto";
+
+export function generateSessionToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+export function hashSessionToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+export function hashSecurityContext(value: string, secret: string): string {
+  return createHmac("sha256", secret).update(value, "utf8").digest("hex");
+}

@@ -1,0 +1,15 @@
+services:
+  comfyui:
+    build: .
+    image: arch-ai-comfy:local
+    gpus: all
+    restart: unless-stopped
+    # Binding to 127.0.0.1 protects ComfyUI from being exposed directly on the internet.
+    ports:
+      - '127.0.0.1:8188:8188'
+    environment:
+      COMFY_LISTEN: 0.0.0.0
+      COMFY_PORT: '8188'
+    volumes:
+      - ./workspace:/workspace
+    shm_size: '8gb'

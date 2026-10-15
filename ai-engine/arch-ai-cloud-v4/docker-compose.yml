@@ -1,0 +1,112 @@
+name: archrender-ai-engine-v4
+
+services:
+  comfyui:
+    build:
+      context: .
+      dockerfile: Dockerfile.comfyui
+      args:
+        COMFYUI_VERSION: v0.36.0
+        COMFYUI_COMMIT: ee71d5c4993f29086b27fde1629a945ae48425bf
+    image: archrender/comfyui:v4-comfyui-0.36.0
+    restart: "no"
+    environment:
+      COMFYUI_LISTEN: 0.0.0.0
+      COMFYUI_PORT: "8188"
+    expose:
+      - "8188"
+    networks:
+      - engine_private
+    volumes:
+      - type: bind
+        source: ./runtime/models
+        target: /opt/ComfyUI/models
+        read_only: true
+      - type: volume
+        source: engine_input
+        target: /opt/ComfyUI/input
+      - type: volume
+        source: engine_output
+        target: /opt/ComfyUI/output
+    tmpfs:
+      - /tmp:size=2g,mode=1770
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    shm_size: 8gb
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8188/system_stats', timeout=3).read(1024)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 32g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: ["gpu"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  ai-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    image: archrender/ai-gateway:v4-python-3.12.12
+    restart: "no"
+    depends_on:
+      comfyui:
+        condition: service_healthy
+    environment:
+      AI_ENGINE_WORKER_TOKEN: ${AI_ENGINE_WORKER_TOKEN:?AI_ENGINE_WORKER_TOKEN is required}
+      AI_ENGINE_COMFYUI_URL: http://comfyui:8188
+      AI_ENGINE_MAX_REQUEST_BYTES: ${AI_ENGINE_MAX_REQUEST_BYTES:-1048576}
+      AI_ENGINE_MAX_INPUT_BYTES: ${AI_ENGINE_MAX_INPUT_BYTES:-104857600}
+      AI_ENGINE_UPSTREAM_TIMEOUT_SECONDS: ${AI_ENGINE_UPSTREAM_TIMEOUT_SECONDS:-30}
+      AI_ENGINE_OUTPUT_ROOT: /engine-output
+      AI_ENGINE_STATE_PATH: /engine-state/executions.json
+    ports:
+      - "${AI_ENGINE_BIND_ADDRESS:-127.0.0.1}:${AI_ENGINE_GATEWAY_PORT:-8189}:8080"
+    networks:
+      - engine_private
+    volumes:
+      - type: volume
+        source: engine_input
+        target: /engine-input
+      - type: volume
+        source: engine_output
+        target: /engine-output
+        read_only: true
+      - type: volume
+        source: engine_state
+        target: /engine-state
+    tmpfs:
+      - /tmp:size=64m,mode=1770
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).read(1024)"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  engine_private:
+    internal: true
+
+volumes:
+  engine_input:
+  engine_output:
+  engine_state:
+

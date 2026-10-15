@@ -1,0 +1,10 @@
+FROM python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+RUN groupadd --gid 10001 archrender \
+    && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin archrender
+COPY --chown=archrender:archrender gateway/gateway.py /opt/archrender/gateway.py
+USER 10001:10001
+WORKDIR /opt/archrender
+ENTRYPOINT ["python", "/opt/archrender/gateway.py"]
+

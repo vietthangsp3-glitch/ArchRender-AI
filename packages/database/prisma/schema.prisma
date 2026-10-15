@@ -1,0 +1,560 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+}
+
+enum ProjectType {
+  INTERIOR
+  EXTERIOR
+  MIXED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum AssetType {
+  SOURCE_IMAGE
+  REFERENCE_IMAGE
+  SOURCE_RENDER
+  DEPTH_MAP
+  NORMAL_MAP
+  CANNY_MAP
+  GENERATED_IMAGE
+  GENERATED_VIDEO
+  WORKFLOW_FILE
+}
+
+enum AssetStatus {
+  PENDING_UPLOAD
+  VERIFYING
+  READY
+  REJECTED
+  QUARANTINED
+  DELETED
+}
+
+enum AssetStorageLayout {
+  LEGACY_SINGLE_OBJECT
+  STAGED_IMMUTABLE_V1
+}
+
+enum AssetIntegrityStatus {
+  PENDING
+  VERIFIED_IMMUTABLE
+  LEGACY_GUARDED
+  FAILED
+}
+
+enum AssetStorageObjectRole {
+  STAGING
+  ORIGINAL
+  THUMBNAIL_GRID
+  THUMBNAIL_DETAIL
+}
+
+enum AssetStorageObjectState {
+  RESERVED
+  WRITTEN
+  VERIFIED
+  CLEANUP_PENDING
+  DELETED
+  FAILED
+}
+
+enum RenderJobType {
+  IMAGE_RENDER
+  IMAGE_UPSCALE
+  IMAGE_TO_VIDEO
+}
+
+enum RenderJobStatus {
+  CREATED
+  UPLOADING
+  QUEUED
+  CLAIMED
+  PROVISIONING
+  RUNNING
+  CANCEL_REQUESTED
+  RETRY_SCHEDULED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum RenderJobEventType {
+  STATUS_CHANGED
+  PROGRESS
+  LOG
+  OUTPUT_ATTACHED
+  COST_UPDATED
+  ERROR
+}
+
+enum WorkflowKind {
+  IMAGE_RENDER
+  IMAGE_UPSCALE
+  IMAGE_TO_VIDEO
+}
+
+enum WorkflowStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum RenderJobAttemptStatus {
+  CLAIMED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  LEASE_EXPIRED
+}
+
+enum GPUProvider {
+  VAST_AI
+  RUNPOD
+}
+
+enum GPUAllocationStatus {
+  REQUESTED
+  PROVISIONING
+  READY
+  BUSY
+  STOPPED
+  TERMINATED
+  FAILED
+}
+
+enum LoginAttemptOutcome {
+  SUCCESS
+  FAILURE
+  BLOCKED
+}
+
+model User {
+  id                   String                @id @default(uuid()) @db.Uuid
+  email                String                @unique @db.VarChar(320)
+  passwordHash         String                @db.VarChar(255)
+  displayName          String?               @db.VarChar(160)
+  role                 UserRole              @default(OWNER)
+  ownerSingletonKey    String?               @unique @db.VarChar(32)
+  disabledAt           DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  sessions             Session[]
+  projects             Project[]
+  assets               Asset[]
+  renderJobs           RenderJob[]
+  workflowPresets      WorkflowPreset[]
+  workflowVersions     WorkflowVersion[]
+  gpuAllocations       GPUAllocation[]
+  providerUsageRecords ProviderUsageRecord[]
+  renderJobEvents      RenderJobEvent[]
+  loginAttempts        LoginAttempt[]
+  ownedActivityLogs    ActivityLog[]         @relation("ActivityLogOwner")
+  actorActivityLogs    ActivityLog[]         @relation("ActivityLogActor")
+
+  @@index([disabledAt])
+}
+
+model LoginAttempt {
+  id             String              @id @default(uuid()) @db.Uuid
+  userId         String?             @db.Uuid
+  identifierHash String              @db.VarChar(128)
+  ipHash         String              @db.VarChar(128)
+  outcome        LoginAttemptOutcome
+  blockedUntil   DateTime?
+  createdAt      DateTime            @default(now())
+  user           User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([identifierHash, createdAt])
+  @@index([ipHash, createdAt])
+  @@index([identifierHash, ipHash, createdAt])
+  @@index([blockedUntil])
+}
+
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(128)
+  expiresAt DateTime
+  lastSeenAt DateTime?
+  revokedAt DateTime?
+  userAgent String?   @db.VarChar(512)
+  ipHash    String?   @db.VarChar(128)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  ownerId     String        @db.Uuid
+  name        String        @db.VarChar(180)
+  slug        String        @db.VarChar(180)
+  description String?       @db.Text
+  type        ProjectType
+  status      ProjectStatus @default(ACTIVE)
+  archivedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  assets      Asset[]
+  renderJobs  RenderJob[]
+  presets     WorkflowPreset[]
+
+  @@unique([ownerId, slug])
+  @@unique([id, ownerId])
+  @@index([ownerId, status, updatedAt])
+}
+
+model Asset {
+  id             String      @id @default(uuid()) @db.Uuid
+  ownerId        String      @db.Uuid
+  projectId      String?     @db.Uuid
+  type           AssetType
+  status         AssetStatus @default(PENDING_UPLOAD)
+  bucket         String      @db.VarChar(128)
+  objectKey      String      @db.VarChar(1024)
+  originalName   String?     @db.VarChar(512)
+  contentType    String?     @db.VarChar(255)
+  byteSize       BigInt?
+  width          Int?
+  height         Int?
+  checksumSha256 String?     @db.VarChar(64)
+  uploadRequestId String?    @db.VarChar(160)
+  uploadExpiresAt DateTime?
+  verificationStartedAt DateTime?
+  verifiedAt     DateTime?
+  rejectionCode String?      @db.VarChar(128)
+  verificationAttempts Int   @default(0)
+  storageLayout  AssetStorageLayout  @default(LEGACY_SINGLE_OBJECT)
+  integrityStatus AssetIntegrityStatus @default(PENDING)
+  finalizedAt    DateTime?
+  metadata       Json?
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  owner          User        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  project        Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  renderInputs   RenderJobInput[]
+  renderOutputs  RenderJobOutput[]
+  storageObjects AssetStorageObject[]
+
+  @@unique([id, ownerId])
+  @@unique([ownerId, uploadRequestId])
+  @@unique([bucket, objectKey])
+  @@index([ownerId, projectId, type, createdAt])
+  @@index([ownerId, status])
+  @@index([ownerId, status, uploadExpiresAt])
+  @@index([checksumSha256])
+}
+
+model AssetStorageObject {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  assetId            String                  @db.Uuid
+  ownerId            String                  @db.Uuid
+  role               AssetStorageObjectRole
+  state              AssetStorageObjectState @default(RESERVED)
+  bucket             String                  @db.VarChar(128)
+  objectKey          String                  @db.VarChar(1024)
+  contentType        String?                 @db.VarChar(255)
+  byteSize           BigInt?
+  width              Int?
+  height             Int?
+  checksumSha256     String?                 @db.VarChar(64)
+  storageEtag        String?                 @db.VarChar(512)
+  sourceObjectId     String?                 @db.Uuid
+  uploadExpiresAt    DateTime?
+  immutableAt        DateTime?
+  cleanupAfter       DateTime?
+  deletedAt          DateTime?
+  attempts           Int                     @default(0)
+  nextAttemptAt      DateTime?
+  lastErrorCode      String?                 @db.VarChar(128)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  asset              Asset                   @relation(fields: [assetId, ownerId], references: [id, ownerId], onDelete: Restrict)
+  source             AssetStorageObject?     @relation("AssetStorageObjectDerivation", fields: [sourceObjectId, assetId, ownerId], references: [id, assetId, ownerId], onDelete: Restrict)
+  derivatives        AssetStorageObject[]    @relation("AssetStorageObjectDerivation")
+  renderInputs       RenderJobInput[]
+
+  @@unique([assetId, role])
+  @@unique([bucket, objectKey])
+  @@unique([id, ownerId])
+  @@unique([id, assetId, ownerId])
+  @@index([ownerId, state, cleanupAfter])
+  @@index([assetId, state])
+  @@index([sourceObjectId])
+}
+
+model RenderJob {
+  id                  String           @id @default(uuid()) @db.Uuid
+  ownerId             String           @db.Uuid
+  projectId           String           @db.Uuid
+  workflowVersionId   String?          @db.Uuid
+  type                RenderJobType
+  status              RenderJobStatus  @default(CREATED)
+  priority            Int              @default(0)
+  progress            Decimal          @default(0) @db.Decimal(5, 2)
+  idempotencyKey      String           @db.VarChar(160)
+  parameters          Json
+  inputSnapshot       Json
+  requestedWidth      Int?
+  requestedHeight     Int?
+  requestedResolution String?          @db.VarChar(32)
+  estimatedCost       Decimal?         @db.Decimal(14, 6)
+  actualCost          Decimal?         @db.Decimal(14, 6)
+  currency            String           @default("USD") @db.VarChar(3)
+  errorCode           String?          @db.VarChar(128)
+  errorMessage        String?          @db.Text
+  errorDetails        Json?
+  retryCount          Int              @default(0)
+  maxRetries          Int              @default(2)
+  nextAttemptAt       DateTime?
+  cancelRequestedAt   DateTime?
+  failedAt            DateTime?
+  leaseOwner          String?          @db.VarChar(160)
+  leaseTokenHash      String?          @db.VarChar(128)
+  leaseExpiresAt      DateTime?
+  executionGeneration Int             @default(0)
+  queuedAt            DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  owner               User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  project             Project          @relation(fields: [projectId, ownerId], references: [id, ownerId], onDelete: Restrict)
+  workflowVersion     WorkflowVersion? @relation(fields: [workflowVersionId, ownerId], references: [id, ownerId], onDelete: Restrict)
+  inputs              RenderJobInput[]
+  outputs             RenderJobOutput[]
+  events              RenderJobEvent[]
+  attempts            RenderJobAttempt[]
+  gpuAllocations      GPUAllocation[]
+  usageRecords        ProviderUsageRecord[]
+
+  @@unique([ownerId, idempotencyKey])
+  @@unique([id, ownerId])
+  @@index([ownerId, projectId, createdAt])
+  @@index([ownerId, status, createdAt])
+  @@index([status, nextAttemptAt, priority, createdAt])
+  @@index([priority(sort: Desc), createdAt, id])
+  @@index([status, leaseExpiresAt])
+  @@index([workflowVersionId])
+}
+
+model RenderJobInput {
+  jobId     String   @db.Uuid
+  assetId   String   @db.Uuid
+  ownerId   String   @db.Uuid
+  role      String   @db.VarChar(64)
+  position  Int      @default(0)
+  storageObjectId String @db.Uuid
+  checksumSha256 String @db.VarChar(64)
+  storageEtag String @db.VarChar(512)
+  contentType String @db.VarChar(255)
+  createdAt DateTime @default(now())
+  job       RenderJob @relation(fields: [jobId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  asset     Asset     @relation(fields: [assetId, ownerId], references: [id, ownerId], onDelete: Restrict)
+  storageObject AssetStorageObject @relation(fields: [storageObjectId, assetId, ownerId], references: [id, assetId, ownerId], onDelete: Restrict)
+
+  @@id([jobId, assetId])
+  @@unique([jobId, role, position])
+  @@index([assetId])
+  @@index([ownerId, assetId])
+  @@index([storageObjectId])
+}
+
+model RenderJobOutput {
+  jobId     String   @db.Uuid
+  assetId   String   @db.Uuid
+  ownerId   String   @db.Uuid
+  role      String   @db.VarChar(64)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  job       RenderJob @relation(fields: [jobId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  asset     Asset     @relation(fields: [assetId, ownerId], references: [id, ownerId], onDelete: Restrict)
+
+  @@id([jobId, assetId])
+  @@unique([jobId, role, position])
+  @@index([assetId])
+  @@index([ownerId, assetId])
+}
+
+model RenderJobEvent {
+  id         String              @id @default(uuid()) @db.Uuid
+  jobId      String              @db.Uuid
+  ownerId    String              @db.Uuid
+  sequence   Int
+  type       RenderJobEventType
+  fromStatus RenderJobStatus?
+  toStatus   RenderJobStatus?
+  progress   Decimal?            @db.Decimal(5, 2)
+  message    String?             @db.Text
+  metadata   Json?
+  createdAt  DateTime            @default(now())
+  job        RenderJob           @relation(fields: [jobId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  owner      User                @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@unique([jobId, sequence])
+  @@index([ownerId, createdAt])
+  @@index([jobId, createdAt])
+}
+
+model RenderJobAttempt {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  jobId               String                 @db.Uuid
+  ownerId             String                 @db.Uuid
+  attemptNumber       Int
+  generation          Int
+  workerId            String                 @db.VarChar(160)
+  leaseTokenHash      String                 @db.VarChar(128)
+  status              RenderJobAttemptStatus @default(CLAIMED)
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  lastHeartbeatAt     DateTime?
+  leaseExpiresAt      DateTime
+  errorCode           String?                @db.VarChar(128)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  job                 RenderJob              @relation(fields: [jobId, ownerId], references: [id, ownerId], onDelete: Cascade)
+
+  @@unique([jobId, attemptNumber])
+  @@unique([jobId, generation])
+  @@index([ownerId, createdAt])
+  @@index([status, leaseExpiresAt])
+}
+
+model WorkflowPreset {
+  id                   String            @id @default(uuid()) @db.Uuid
+  ownerId              String            @db.Uuid
+  projectId            String?           @db.Uuid
+  name                 String            @db.VarChar(180)
+  description          String?           @db.Text
+  kind                 WorkflowKind
+  status               WorkflowStatus     @default(DRAFT)
+  draftConfiguration   Json
+  parameterSchemaVersion String            @default("1") @db.VarChar(32)
+  currentVersionNumber Int               @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  owner                User              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  project              Project?          @relation(fields: [projectId, ownerId], references: [id, ownerId], onDelete: Restrict)
+  versions             WorkflowVersion[]
+
+  @@unique([ownerId, name])
+  @@unique([id, ownerId])
+  @@index([ownerId, kind, updatedAt])
+  @@index([projectId])
+}
+
+model WorkflowVersion {
+  id                     String         @id @default(uuid()) @db.Uuid
+  ownerId                String         @db.Uuid
+  presetId               String         @db.Uuid
+  version                Int
+  parameterSchemaVersion String         @db.VarChar(32)
+  workflowReference      String         @db.VarChar(1024)
+  parameters             Json
+  semanticMapping        Json?
+  compatibility          Json?
+  publishedAt            DateTime       @default(now())
+  createdAt              DateTime       @default(now())
+  owner                  User           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  preset                 WorkflowPreset @relation(fields: [presetId, ownerId], references: [id, ownerId], onDelete: Restrict)
+  renderJobs             RenderJob[]
+
+  @@unique([presetId, version])
+  @@unique([id, ownerId])
+  @@index([ownerId, createdAt])
+}
+
+model GPUAllocation {
+  id                   String              @id @default(uuid()) @db.Uuid
+  ownerId              String              @db.Uuid
+  jobId                String?             @db.Uuid
+  provider             GPUProvider
+  providerAllocationId String?             @db.VarChar(255)
+  status               GPUAllocationStatus @default(REQUESTED)
+  gpuModel             String?             @db.VarChar(255)
+  vramMb               Int?
+  hourlyRate           Decimal?            @db.Decimal(14, 6)
+  currency             String              @default("USD") @db.VarChar(3)
+  provisionedAt        DateTime?
+  readyAt              DateTime?
+  stoppedAt            DateTime?
+  terminatedAt         DateTime?
+  metadata             Json?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  owner                User                @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  job                  RenderJob?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  usageRecords         ProviderUsageRecord[]
+
+  @@unique([provider, providerAllocationId])
+  @@unique([id, ownerId])
+  @@index([ownerId, status, createdAt])
+  @@index([jobId])
+}
+
+model ProviderUsageRecord {
+  id                 String         @id @default(uuid()) @db.Uuid
+  ownerId            String         @db.Uuid
+  jobId              String?        @db.Uuid
+  gpuAllocationId    String?        @db.Uuid
+  provider           GPUProvider
+  externalResourceId String?        @db.VarChar(255)
+  startedAt          DateTime
+  endedAt            DateTime?
+  billedSeconds      Int?
+  hourlyRate         Decimal?       @db.Decimal(14, 6)
+  estimatedCost      Decimal?       @db.Decimal(14, 6)
+  actualCost         Decimal?       @db.Decimal(14, 6)
+  currency           String         @default("USD") @db.VarChar(3)
+  rawUsage           Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  owner              User           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  job                RenderJob?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  gpuAllocation      GPUAllocation? @relation(fields: [gpuAllocationId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalResourceId])
+  @@index([ownerId, startedAt])
+  @@index([jobId])
+  @@index([gpuAllocationId])
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerId     String   @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String   @db.VarChar(160)
+  entityType  String   @db.VarChar(80)
+  entityId    String?  @db.VarChar(255)
+  requestId   String?  @db.VarChar(160)
+  ipHash      String?  @db.VarChar(128)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  owner       User     @relation("ActivityLogOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  actor       User?    @relation("ActivityLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, createdAt])
+  @@index([ownerId, entityType, entityId])
+  @@index([requestId])
+}
