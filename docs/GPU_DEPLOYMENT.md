@@ -70,6 +70,33 @@ Record the registry-reported `sha256:...` manifest digest. Configure RunPod with
 private pull test. Enter registry credentials only in RunPod's private-registry credential fields.
 The local Docker digest is build evidence, not proof of the future registry digest.
 
+### Large-layer and GHCR 502 recovery
+
+The pinned PyTorch base contains one compressed `3,276,447,764` byte layer
+(`sha256:fadd8cccba885ca0a6bbf8c135d31d0d2ebd9e7fae7dabaa66475012cea2a4ca`). Its Docker history
+instruction is the upstream `COPY /opt/conda /opt/conda`; the uncompressed layer is about 6.11 GB
+and contains the pinned PyTorch/CUDA/cuDNN runtime. It cannot be split or made smaller by a child
+Dockerfile without rebasing/repacking that runtime and invalidating its verified digest. Do not use
+`--no-cache`, flatten the image, or remove runtime libraries to work around a registry error.
+
+If `docker push` reports HTTP 502 after uploading a large layer, keep the same local image and tag.
+First check whether GHCR committed the manifest, then repeat the identical push only when the
+manifest is absent. Content-addressed layers that GHCR already committed are reused.
+
+```powershell
+$Commit = (git rev-parse --short=12 HEAD).Trim()
+$Image = "ghcr.io/vietthangsp3-glitch/archrender-ai-runpod:$Commit"
+
+docker buildx imagetools inspect $Image
+# If the tag is absent, retry exactly once without rebuilding or retagging:
+docker push $Image
+docker buildx imagetools inspect $Image
+```
+
+After a successful push, record the registry digest and use the digest-pinned reference in the
+RunPod template. As long as the pinned PyTorch base digest remains unchanged, later application
+images reuse the existing large base layer instead of uploading it again.
+
 ## Four required model artifacts
 
 Total unique bytes: 7,796,582,270. Download only from each exact `sourceUrl` and revision in
