@@ -62,6 +62,6 @@ export interface AssetListResult {
   policy: {
     maxUploadBytes: number;
     acceptedContentTypes: readonly string[];
-    uploadAssetTypes: readonly string[];
+    uploadAssetTypes: readonly UploadAssetType[];
   };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validateUploadFile } from "./asset-upload-dialog";
+import { validateUploadFile } from "@/lib/assets/upload";
 
 const policy = {
   maxUploadBytes: 25 * 1024 * 1024,

@@ -6,41 +6,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AssetClientError,
   assetErrorMessage,
-  completeAssetUpload,
-  initiateAssetUpload,
+  type AssetSummary,
   type UploadAssetType,
 } from "@/lib/assets/client";
-import { uploadDirectlyToStorage } from "@/lib/assets/direct-upload";
+import {
+  uploadAndVerifyAsset,
+  validateUploadFile,
+  type UploadPhase,
+  type UploadValidationPolicy,
+} from "@/lib/assets/upload";
 import { Badge, Button, Card } from "./ui";
-
-export type UploadPhase =
-  | "idle"
-  | "initiating"
-  | "uploading"
-  | "verifying"
-  | "success"
-  | "cancelled"
-  | "error";
-
-export interface UploadValidationPolicy {
-  maxUploadBytes: number;
-  acceptedContentTypes: readonly string[];
-  uploadAssetTypes: readonly UploadAssetType[];
-}
-
-export function validateUploadFile(file: File, policy: UploadValidationPolicy): string | null {
-  if (!policy.acceptedContentTypes.includes(file.type)) return "Chỉ hỗ trợ JPG, PNG hoặc WebP.";
-  if (file.size <= 0) return "Tệp không được để trống.";
-  if (file.size > policy.maxUploadBytes) {
-    return `Tệp vượt quá giới hạn ${Math.floor(policy.maxUploadBytes / 1024 / 1024)} MB.`;
-  }
-  return null;
-}
-
-async function checksumSha256(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 const TYPE_LABELS: Record<UploadAssetType, string> = {
   SOURCE_IMAGE: "Ảnh nguồn",
@@ -61,7 +36,7 @@ export function AssetUploadDialog({
   projects: Array<{ id: string; name: string; status: "ACTIVE" | "ARCHIVED" }>;
   policy: UploadValidationPolicy;
   onClose: () => void;
-  onUploaded: () => void;
+  onUploaded: (asset: AssetSummary) => void;
 }) {
   const activeProjects = useMemo(
     () => projects.filter((project) => project.status === "ACTIVE"),
@@ -102,34 +77,17 @@ export function AssetUploadDialog({
     setFeedback(null);
     setProgress(0);
     try {
-      setPhase("initiating");
-      const contract = await initiateAssetUpload({
+      const asset = await uploadAndVerifyAsset({
         requestId: requestId.current,
         projectId,
         assetType,
-        originalName: file.name,
-        contentType: file.type,
-        byteSize: file.size,
-      });
-      if (abortController.signal.aborted) throw new DOMException("Upload aborted.", "AbortError");
-      setPhase("uploading");
-      const uploaded = await uploadDirectlyToStorage({
-        url: contract.upload.url,
-        requiredHeaders: contract.upload.requiredHeaders,
         file,
+        policy,
         signal: abortController.signal,
-        timeoutMs: 120_000,
-        onProgress: (loaded, total) => setProgress(Math.min(100, Math.round((loaded / total) * 100))),
+        onPhase: setPhase,
+        onProgress: setProgress,
       });
-      setPhase("verifying");
-      const checksum = await checksumSha256(file);
-      await completeAssetUpload(contract.assetId, {
-        ...(uploaded.etag ? { etag: uploaded.etag } : {}),
-        checksumSha256: checksum,
-      });
-      setProgress(100);
-      setPhase("success");
-      onUploaded();
+      onUploaded(asset);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setPhase("cancelled");

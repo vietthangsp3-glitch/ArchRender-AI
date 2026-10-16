@@ -11,9 +11,9 @@ type Configuration = { backend: "COMFYUI_IMAGE" | "WAN_VIDEO"; kind: Kind; param
 type Workflow = { id: string; name: string; kind: Kind; status: "DRAFT" | "PUBLISHED" | "ARCHIVED"; currentVersionNumber: number; draftConfiguration: Configuration; versions: Array<{ id: string; version: number; createdAt: string }> };
 
 const defaults: Record<Kind, Configuration> = {
-  IMAGE_RENDER: { backend: "COMFYUI_IMAGE", kind: "IMAGE_RENDER", parameterSchemaVersion: "1", modelFamily: "SDXL", conditioning: ["IMAGE"] },
-  IMAGE_UPSCALE: { backend: "COMFYUI_IMAGE", kind: "IMAGE_UPSCALE", parameterSchemaVersion: "1", modelFamily: "SDXL_UPSCALE", conditioning: ["IMAGE"] },
-  IMAGE_TO_VIDEO: { backend: "WAN_VIDEO", kind: "IMAGE_TO_VIDEO", parameterSchemaVersion: "1", modelFamily: "WAN", conditioning: ["IMAGE"] },
+  IMAGE_RENDER: { backend: "COMFYUI_IMAGE", kind: "IMAGE_RENDER", parameterSchemaVersion: "1", modelFamily: "sdxl", conditioning: ["IMAGE"] },
+  IMAGE_UPSCALE: { backend: "COMFYUI_IMAGE", kind: "IMAGE_UPSCALE", parameterSchemaVersion: "1", modelFamily: "sdxl_upscale", conditioning: ["IMAGE"] },
+  IMAGE_TO_VIDEO: { backend: "WAN_VIDEO", kind: "IMAGE_TO_VIDEO", parameterSchemaVersion: "1", modelFamily: "wan", conditioning: ["IMAGE"] },
 };
 async function api(path: string, init?: RequestInit) {
   const response = await fetch(path, { ...init, headers: { "content-type": "application/json", ...init?.headers } });

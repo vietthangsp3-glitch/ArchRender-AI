@@ -16,10 +16,11 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { AssetSummary, AssetType } from "@/lib/assets/client";
+import type { AssetSummary, UploadAssetType } from "@/lib/assets/client";
+import type { UploadValidationPolicy } from "@/lib/assets/upload";
 import { archImages } from "@/lib/mock-data";
-import { AssetPicker } from "./asset-picker";
 import { AssetPreview } from "./asset-preview";
+import { StudioAssetInput } from "./studio-asset-input";
 import { Badge, Button, Card, SectionTitle, Toggle } from "./ui";
 import { PageHeader } from "./page-header";
 
@@ -58,7 +59,10 @@ function Range({ label, value, min = 0, max = 1, step = 0.05, onChange }: { labe
   return <label className="block"><span className="mb-1.5 flex justify-between text-xs text-slate-300"><span>{label}</span><span className="rounded bg-[#1a2735] px-1.5 py-0.5 text-slate-200">{value}</span></span><input className="h-1.5 w-full accent-[#6b7cff]" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
 }
 
-export function ImageStudio({ projectOptions = [] }: { projectOptions?: Array<{ id: string; name: string; status: "ACTIVE" | "ARCHIVED" }> }) {
+export function ImageStudio({ projectOptions = [], uploadPolicy }: {
+  projectOptions?: Array<{ id: string; name: string; status: "ACTIVE" | "ARCHIVED" }>;
+  uploadPolicy: UploadValidationPolicy;
+}) {
   const [projectId, setProjectId] = useState("");
   const [source, setSource] = useState<AssetSummary | null>(null);
   const [controlAsset, setControlAsset] = useState<AssetSummary | null>(null);
@@ -118,12 +122,12 @@ export function ImageStudio({ projectOptions = [] }: { projectOptions?: Array<{ 
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[0.92fr_1.05fr_1.45fr]">
-        <Card className="p-3.5"><SectionTitle number={1} title="Chọn ảnh đầu vào" /><AssetPicker label="Ảnh nguồn / tham chiếu" projectId={projectId} allowedTypes={["SOURCE_IMAGE", "REFERENCE_IMAGE"] as readonly AssetType[]} value={source} onChange={setSource} /><p className="mt-3 text-[11px] leading-5 text-slate-500">Ảnh phải thuộc dự án đang chọn và đã hoàn tất xác minh READY.</p></Card>
+        <Card className="p-3.5"><SectionTitle number={1} title="Chọn ảnh đầu vào" /><StudioAssetInput key={`source-${selectedProject?.id ?? "none"}`} label="Ảnh nguồn / tham chiếu" project={selectedProject ?? null} allowedTypes={["SOURCE_IMAGE", "REFERENCE_IMAGE"] as readonly UploadAssetType[]} value={source} policy={uploadPolicy} onChange={setSource} /><p className="mt-3 text-[11px] leading-5 text-slate-500">Ảnh phải thuộc dự án đang chọn và đã hoàn tất xác minh READY.</p></Card>
 
         <Card className="p-3.5">
           <SectionTitle number={2} title="Bản đồ điều khiển" action={<Badge>Tùy chọn</Badge>} />
           <div className="mb-3 grid grid-cols-3 gap-1.5 rounded-lg bg-[#0c141d] p-1">{[["DEPTH_MAP", "Depth Map"], ["NORMAL_MAP", "Normal Map"], ["CANNY_MAP", "Canny / Lineart"]].map(([value, item]) => <button key={value} onClick={() => { setControlType(value as typeof controlType); setControlAsset(null); }} className={cn("rounded-md py-2 text-[11px] transition", controlType === value ? "border border-blue-400 bg-blue-400/10 text-blue-200" : "text-slate-400 hover:text-slate-200")}>{item}</button>)}</div>
-          <AssetPicker label={controlType === "DEPTH_MAP" ? "Depth Map" : controlType === "NORMAL_MAP" ? "Normal Map" : "Canny Map"} projectId={projectId} allowedTypes={[controlType]} value={controlAsset} onChange={setControlAsset} />
+          <StudioAssetInput key={`control-${selectedProject?.id ?? "none"}-${controlType}`} label={controlType === "DEPTH_MAP" ? "Depth Map" : controlType === "NORMAL_MAP" ? "Normal Map" : "Canny Map"} project={selectedProject ?? null} allowedTypes={[controlType]} value={controlAsset} policy={uploadPolicy} onChange={setControlAsset} />
           <p className="mt-3 text-[11px] leading-5 text-slate-500">Control map là tùy chọn và phải thuộc cùng dự án với ảnh nguồn.</p>
         </Card>
 

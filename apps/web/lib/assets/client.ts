@@ -159,10 +159,11 @@ export async function initiateAssetUpload(input: {
   originalName: string;
   contentType: string;
   byteSize: number;
-}) {
+}, signal?: AbortSignal) {
   const body = await apiRequest<ApiEnvelope<{ result: UploadContract }>>("/api/assets/uploads", {
     method: "POST",
     body: JSON.stringify(input),
+    ...(signal ? { signal } : {}),
   });
   return body.result;
 }
@@ -170,10 +171,11 @@ export async function initiateAssetUpload(input: {
 export async function completeAssetUpload(
   assetId: string,
   input: { etag?: string; checksumSha256?: string },
+  signal?: AbortSignal,
 ) {
   const body = await apiRequest<ApiEnvelope<{ asset: { assetId: string; status: string } }>>(
     `/api/assets/${encodeURIComponent(assetId)}/complete`,
-    { method: "POST", body: JSON.stringify(input) },
+    { method: "POST", body: JSON.stringify(input), ...(signal ? { signal } : {}) },
   );
   return body.asset;
 }

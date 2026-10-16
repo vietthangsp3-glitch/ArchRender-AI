@@ -164,6 +164,7 @@ describe("durable recovery manifest on the real filesystem", () => {
 
   it("keeps the runtime manifest directory ignored by git", async () => {
     const gitignore = await readFile(new URL("../../../.gitignore", import.meta.url), "utf8");
-    expect(gitignore.split(/\r?\n/)).toContain("packages/assets/.r2-acceptance/");
+    const patterns = gitignore.split(/\r?\n/);
+    expect(patterns.some((pattern) => pattern === "packages/assets/.r2-acceptance/" || pattern === "**/.r2-acceptance/")).toBe(true);
   });
 });
