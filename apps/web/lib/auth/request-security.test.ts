@@ -43,4 +43,19 @@ describe("mutation request security", () => {
     expect(isTrustedMutationRequest(request)).toBe(true);
     expect(getClientAddress(request)).toBe("203.0.113.10");
   });
+
+  it("accepts the exact Vercel staging origin behind the trusted proxy", () => {
+    vi.stubEnv("AUTH_TRUST_PROXY", "true");
+    vi.stubEnv("AUTH_TRUSTED_ORIGINS", "https://arch-render-ai.vercel.app");
+    const request = new Request("http://internal/api/assets/uploads", {
+      method: "POST",
+      headers: {
+        host: "internal",
+        origin: "https://arch-render-ai.vercel.app",
+        "x-forwarded-host": "arch-render-ai.vercel.app",
+        "x-forwarded-proto": "https",
+      },
+    });
+    expect(isTrustedMutationRequest(request)).toBe(true);
+  });
 });

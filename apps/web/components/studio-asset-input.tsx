@@ -4,13 +4,13 @@ import { RotateCcw, Square, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
-  AssetClientError,
-  assetErrorMessage,
   type AssetSummary,
   type UploadAssetType,
 } from "@/lib/assets/client";
 import {
+  AssetUploadFlowError,
   uploadAndVerifyAsset,
+  uploadErrorMessage,
   validateUploadFile,
   type UploadPhase,
   type UploadValidationPolicy,
@@ -25,11 +25,6 @@ const TYPE_LABELS: Record<UploadAssetType, string> = {
   NORMAL_MAP: "Normal Map",
   CANNY_MAP: "Canny / Lineart",
 };
-
-function safeUploadMessage(error: unknown): string {
-  if (error instanceof AssetClientError) return assetErrorMessage(error);
-  return "Tải trực tiếp thất bại. Hãy kiểm tra kết nối và thử lại.";
-}
 
 export function StudioAssetInput({
   label,
@@ -51,15 +46,22 @@ export function StudioAssetInput({
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [progress, setProgress] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [diagnostic, setDiagnostic] = useState<{
+    stage: string;
+    code: string;
+    httpStatus?: number;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
-  const requestId = useRef(crypto.randomUUID());
+  const requestId = useRef<string | null>(null);
 
   useEffect(() => () => controller.current?.abort(), []);
 
-  const upload = async (nextFile: File) => {
+  const upload = async (nextFile: File, operationRequestId: string) => {
+    if (controller.current) return;
     setFile(nextFile);
     setFeedback(null);
+    setDiagnostic(null);
     setProgress(0);
     if (!project) {
       setPhase("error");
@@ -82,7 +84,7 @@ export function StudioAssetInput({
     controller.current = abortController;
     try {
       const asset = await uploadAndVerifyAsset({
-        requestId: requestId.current,
+        requestId: operationRequestId,
         projectId: project.id,
         assetType: uploadType,
         file: nextFile,
@@ -97,11 +99,18 @@ export function StudioAssetInput({
         setPhase("cancelled");
         setFeedback("Đã hủy tải lên. Bạn có thể thử lại hoặc chọn từ thư viện.");
       } else {
-        if (error instanceof AssetClientError && error.code === "ASSET_UPLOAD_EXPIRED") {
+        if (error instanceof AssetUploadFlowError) {
+          setDiagnostic({
+            stage: error.stage,
+            code: error.code,
+            ...(error.httpStatus ? { httpStatus: error.httpStatus } : {}),
+          });
+        }
+        if (error instanceof AssetUploadFlowError && error.code === "ASSET_UPLOAD_EXPIRED") {
           requestId.current = crypto.randomUUID();
         }
         setPhase("error");
-        setFeedback(safeUploadMessage(error));
+        setFeedback(uploadErrorMessage(error));
       }
     } finally {
       controller.current = null;
@@ -143,7 +152,7 @@ export function StudioAssetInput({
                 setFile(null);
                 setPhase("idle");
                 setFeedback(null);
-                requestId.current = crypto.randomUUID();
+                requestId.current = null;
               }}
               disabled={busy}
             >
@@ -163,7 +172,11 @@ export function StudioAssetInput({
           onChange={(event) => {
             const next = event.target.files?.[0];
             event.currentTarget.value = "";
-            if (next) void upload(next);
+            if (next) {
+              const nextRequestId = crypto.randomUUID();
+              requestId.current = nextRequestId;
+              void upload(next, nextRequestId);
+            }
           }}
         />
       </div>
@@ -178,10 +191,14 @@ export function StudioAssetInput({
           {busy ? <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full bg-gradient-to-r from-violet-500 to-blue-400 transition-[width]" style={{ width: `${progress}%` }} /></div> : null}
         </div>
       ) : null}
-      {feedback ? <p role="alert" className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-2.5 text-[10px] leading-4 text-amber-100">{feedback}</p> : null}
+      {feedback ? <div role="alert" className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-2.5 text-[10px] leading-4 text-amber-100"><p>{feedback}</p>{diagnostic ? <p className="mt-1 font-mono text-[9px] text-amber-200/75">stage={diagnostic.stage} · code={diagnostic.code}{diagnostic.httpStatus ? ` · http=${diagnostic.httpStatus}` : ""}</p> : null}</div> : null}
       {cancellable ? <Button variant="danger" onClick={() => controller.current?.abort()}><Square size={13} /> Hủy tải lên</Button> : null}
       {(phase === "error" || phase === "cancelled") && file && project?.status === "ACTIVE" ? (
-        <Button onClick={() => void upload(file)}><RotateCcw size={13} /> Thử lại</Button>
+        <Button onClick={() => {
+          const retryRequestId = requestId.current ?? crypto.randomUUID();
+          requestId.current = retryRequestId;
+          void upload(file, retryRequestId);
+        }}><RotateCcw size={13} /> Thử lại</Button>
       ) : null}
     </div>
   );

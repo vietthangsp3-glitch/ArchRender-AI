@@ -16,9 +16,13 @@ vi.mock("./client", async (importOriginal) => {
     getAsset: mocks.get,
   };
 });
-vi.mock("./direct-upload", () => ({ uploadDirectlyToStorage: mocks.upload }));
+vi.mock("./direct-upload", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./direct-upload")>();
+  return { ...actual, uploadDirectlyToStorage: mocks.upload };
+});
 
 import { AssetClientError } from "./client";
+import { DirectUploadError } from "./direct-upload";
 import { uploadAndVerifyAsset } from "./upload";
 
 const policy = {
@@ -96,5 +100,27 @@ describe("secure local asset upload orchestration", () => {
       file: fixtureFile(),
       policy,
     })).rejects.toEqual(expect.objectContaining<Partial<AssetClientError>>({ code: "ASSET_INTEGRITY_CONFLICT" }));
+  });
+
+  it.each([
+    ["initiate", () => mocks.initiate.mockRejectedValue(new AssetClientError("ASSET_INVALID_ORIGIN", 403)), "ASSET_INVALID_ORIGIN", 403],
+    ["put", () => {
+      mocks.initiate.mockResolvedValue({ assetId, upload: { url: "https://signed.invalid/redacted", requiredHeaders: {} } });
+      mocks.upload.mockRejectedValue(new DirectUploadError("DIRECT_UPLOAD_NETWORK_ERROR"));
+    }, "DIRECT_UPLOAD_NETWORK_ERROR", undefined],
+    ["complete", () => {
+      mocks.initiate.mockResolvedValue({ assetId, upload: { url: "https://signed.invalid/redacted", requiredHeaders: {} } });
+      mocks.upload.mockResolvedValue({});
+      mocks.complete.mockRejectedValue(new AssetClientError("ASSET_STORAGE_UNAVAILABLE", 503, true));
+    }, "ASSET_STORAGE_UNAVAILABLE", 503],
+  ] as const)("reports a sanitized %s stage failure", async (stage, arrange, code, httpStatus) => {
+    arrange();
+    await expect(uploadAndVerifyAsset({
+      requestId: "request_0000000000003",
+      projectId,
+      assetType: "SOURCE_IMAGE",
+      file: fixtureFile(),
+      policy,
+    })).rejects.toMatchObject({ stage, code, ...(httpStatus ? { httpStatus } : {}) });
   });
 });

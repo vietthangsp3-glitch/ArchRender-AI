@@ -11,6 +11,21 @@ export interface DirectUploadResult {
   etag: string | null;
 }
 
+export type DirectUploadErrorCode =
+  | "DIRECT_UPLOAD_HTTP_ERROR"
+  | "DIRECT_UPLOAD_NETWORK_ERROR"
+  | "DIRECT_UPLOAD_TIMEOUT";
+
+export class DirectUploadError extends Error {
+  constructor(
+    public readonly code: DirectUploadErrorCode,
+    public readonly httpStatus?: number,
+  ) {
+    super(code);
+    this.name = "DirectUploadError";
+  }
+}
+
 export function browserUploadHeaders(headers: Readonly<Record<string, string>>) {
   return Object.fromEntries(
     Object.entries(headers).filter(([name]) => name.toLowerCase() !== "content-length"),
@@ -35,11 +50,14 @@ export function uploadDirectlyToStorage(input: DirectUploadInput): Promise<Direc
       if (request.status >= 200 && request.status < 300) {
         resolve({ etag: request.getResponseHeader("ETag") });
       } else {
-        reject(new Error(`Direct upload failed with status ${request.status}.`));
+        reject(new DirectUploadError(
+          "DIRECT_UPLOAD_HTTP_ERROR",
+          request.status >= 100 && request.status <= 599 ? request.status : undefined,
+        ));
       }
     });
-    request.addEventListener("error", () => reject(new Error("Direct upload network failure.")));
-    request.addEventListener("timeout", () => reject(new Error("Direct upload timed out.")));
+    request.addEventListener("error", () => reject(new DirectUploadError("DIRECT_UPLOAD_NETWORK_ERROR")));
+    request.addEventListener("timeout", () => reject(new DirectUploadError("DIRECT_UPLOAD_TIMEOUT")));
     request.addEventListener("abort", () => reject(new DOMException("Upload aborted.", "AbortError")));
     request.send(input.file);
   });

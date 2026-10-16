@@ -4,13 +4,13 @@ import { CloudUpload, FileImage, RotateCcw, Square, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  AssetClientError,
-  assetErrorMessage,
   type AssetSummary,
   type UploadAssetType,
 } from "@/lib/assets/client";
 import {
+  AssetUploadFlowError,
   uploadAndVerifyAsset,
+  uploadErrorMessage,
   validateUploadFile,
   type UploadPhase,
   type UploadValidationPolicy,
@@ -69,7 +69,7 @@ export function AssetUploadDialog({
   };
 
   const upload = async () => {
-    if (!file || !projectId || phase === "uploading" || phase === "verifying") return;
+    if (!file || !projectId || controller.current || phase === "uploading" || phase === "verifying") return;
     const problem = validateUploadFile(file, policy);
     if (problem) return setFeedback(problem);
     const abortController = new AbortController();
@@ -93,11 +93,11 @@ export function AssetUploadDialog({
         setPhase("cancelled");
         setFeedback("Đã hủy. Bản ghi chờ sẽ được tác vụ bảo trì dọn sau khi hết hạn.");
       } else {
-        if (error instanceof AssetClientError && error.code === "ASSET_UPLOAD_EXPIRED") {
+        if (error instanceof AssetUploadFlowError && error.code === "ASSET_UPLOAD_EXPIRED") {
           requestId.current = crypto.randomUUID();
         }
         setPhase("error");
-        setFeedback(assetErrorMessage(error));
+        setFeedback(uploadErrorMessage(error));
       }
     } finally {
       controller.current = null;
@@ -133,13 +133,13 @@ export function AssetUploadDialog({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-400">Dự án ACTIVE
-            <select className="field mt-1.5 h-10 px-3 text-xs" value={projectId} onChange={(event) => setProjectId(event.target.value)} disabled={busy}>
+            <select className="field mt-1.5 h-10 px-3 text-xs" value={projectId} onChange={(event) => { setProjectId(event.target.value); requestId.current = crypto.randomUUID(); }} disabled={busy}>
               <option value="">Chọn dự án</option>
               {activeProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
           </label>
           <label className="text-xs text-slate-400">Loại tài nguyên
-            <select className="field mt-1.5 h-10 px-3 text-xs" value={assetType} onChange={(event) => setAssetType(event.target.value as UploadAssetType)} disabled={busy}>
+            <select className="field mt-1.5 h-10 px-3 text-xs" value={assetType} onChange={(event) => { setAssetType(event.target.value as UploadAssetType); requestId.current = crypto.randomUUID(); }} disabled={busy}>
               {policy.uploadAssetTypes.map((type) => <option key={type} value={type}>{TYPE_LABELS[type]}</option>)}
             </select>
           </label>

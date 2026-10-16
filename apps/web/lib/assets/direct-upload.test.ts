@@ -48,4 +48,22 @@ describe("direct browser upload contract", () => {
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
   });
+
+  it.each([
+    ["error", "DIRECT_UPLOAD_NETWORK_ERROR", undefined],
+    ["timeout", "DIRECT_UPLOAD_TIMEOUT", undefined],
+    ["load", "DIRECT_UPLOAD_HTTP_ERROR", 403],
+  ] as const)("classifies %s without exposing the signed URL", async (event, code, httpStatus) => {
+    vi.stubGlobal("XMLHttpRequest", FakeXhr);
+    const pending = uploadDirectlyToStorage({
+      url: "https://signed.invalid/private?credential=redacted",
+      file: new Blob(["1234"]),
+      requiredHeaders: { "content-type": "image/png" },
+    });
+    if (event === "load") FakeXhr.latest.status = 403;
+    FakeXhr.latest.listeners.get(event)?.();
+    const error = await pending.catch((reason: unknown) => reason);
+    expect(error).toMatchObject({ name: "DirectUploadError", code, ...(httpStatus ? { httpStatus } : {}) });
+    expect(String((error as Error).message)).not.toContain("signed.invalid");
+  });
 });

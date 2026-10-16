@@ -185,6 +185,9 @@ export function assetErrorMessage(error: unknown): string {
   const messages: Record<string, string> = {
     ASSET_INVALID_INPUT: "Tệp hoặc thông tin tải lên không hợp lệ.",
     ASSET_VALIDATION: "Thông tin gửi lên không hợp lệ.",
+    ASSET_INVALID_ORIGIN: "Yêu cầu bị từ chối do Origin không được tin cậy.",
+    ASSET_FORBIDDEN: "Bạn không có quyền thực hiện thao tác này.",
+    ASSET_UNEXPECTED_ERROR: "Máy chủ gặp lỗi ngoài dự kiến. Hãy thử lại sau.",
     ASSET_PROJECT_ARCHIVED: "Dự án đã lưu trữ và chỉ có thể xem.",
     ASSET_PROJECT_NOT_FOUND: "Không tìm thấy dự án hoặc bạn không có quyền truy cập.",
     ASSET_NOT_FOUND: "Không tìm thấy tài nguyên hoặc bạn không có quyền truy cập.",

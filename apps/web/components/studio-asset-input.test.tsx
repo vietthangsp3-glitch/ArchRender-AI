@@ -12,6 +12,7 @@ vi.mock("./asset-picker", () => ({
 }));
 
 import { StudioAssetInput } from "./studio-asset-input";
+import { AssetUploadFlowError } from "@/lib/assets/upload";
 
 const project = { id: "11111111-1111-4111-8111-111111111111", status: "ACTIVE" as const };
 const policy = {
@@ -38,6 +39,7 @@ const readyAsset = {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe("Image Studio local upload", () => {
@@ -79,5 +81,82 @@ describe("Image Studio local upload", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Tải trực tiếp thất bại");
     fireEvent.click(screen.getByRole("button", { name: /Thử lại/ }));
     await waitFor(() => expect(uploadAndVerifyAsset).toHaveBeenCalledTimes(2));
+  });
+
+  it("shows only a sanitized stage, code, and status for an initiate failure", async () => {
+    uploadAndVerifyAsset.mockRejectedValue(new AssetUploadFlowError("initiate", "ASSET_INVALID_ORIGIN", 403));
+    render(<StudioAssetInput label="Ảnh nguồn" project={project} allowedTypes={["SOURCE_IMAGE"]} value={null} policy={policy} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Tệp tải lên cho Ảnh nguồn"), {
+      target: { files: [new File(["png"], "source.png", { type: "image/png" })] },
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("stage=initiate · code=ASSET_INVALID_ORIGIN · http=403");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("signed");
+  });
+
+  it("uses a fresh idempotency key when upload B follows a failed PUT for upload A", async () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+      .mockReturnValueOnce("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    uploadAndVerifyAsset
+      .mockRejectedValueOnce(new AssetUploadFlowError("put", "DIRECT_UPLOAD_HTTP_ERROR", 403))
+      .mockResolvedValueOnce({ ...readyAsset, originalName: "b.png" });
+    render(<StudioAssetInput label="Ảnh nguồn" project={project} allowedTypes={["SOURCE_IMAGE"]} value={null} policy={policy} onChange={vi.fn()} />);
+    const picker = screen.getByLabelText("Tệp tải lên cho Ảnh nguồn");
+
+    fireEvent.change(picker, { target: { files: [new File(["aaa"], "a.png", { type: "image/png" })] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("DIRECT_UPLOAD_HTTP_ERROR");
+    fireEvent.change(picker, { target: { files: [new File(["bbb"], "b.png", { type: "image/png" })] } });
+    await waitFor(() => expect(uploadAndVerifyAsset).toHaveBeenCalledTimes(2));
+
+    expect(uploadAndVerifyAsset.mock.calls[0]?.[0].requestId).toBe("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    expect(uploadAndVerifyAsset.mock.calls[1]?.[0].requestId).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+  });
+
+  it("reuses one idempotency key for same-file retry and suppresses repeated retry clicks", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    let resolveRetry: ((asset: typeof readyAsset) => void) | undefined;
+    uploadAndVerifyAsset
+      .mockRejectedValueOnce(new AssetUploadFlowError("put", "DIRECT_UPLOAD_NETWORK_ERROR"))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveRetry = resolve; }));
+    render(<StudioAssetInput label="Ảnh nguồn" project={project} allowedTypes={["SOURCE_IMAGE"]} value={null} policy={policy} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Tệp tải lên cho Ảnh nguồn"), {
+      target: { files: [new File(["png"], "same.png", { type: "image/png" })] },
+    });
+    const retry = await screen.findByRole("button", { name: /Thử lại/ });
+    fireEvent.click(retry);
+    fireEvent.click(retry);
+    expect(uploadAndVerifyAsset).toHaveBeenCalledTimes(2);
+    expect(uploadAndVerifyAsset.mock.calls[0]?.[0].requestId).toBe(uploadAndVerifyAsset.mock.calls[1]?.[0].requestId);
+    resolveRetry?.(readyAsset);
+  });
+
+  it("keeps the same operation after cancel, but creates a new key after remount", async () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+      .mockReturnValueOnce("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    uploadAndVerifyAsset.mockImplementationOnce(({ signal, onPhase }) => {
+      onPhase?.("uploading");
+      return new Promise((_resolve, reject) => signal?.addEventListener(
+        "abort",
+        () => reject(new DOMException("cancelled", "AbortError")),
+        { once: true },
+      ));
+    }).mockResolvedValue(readyAsset);
+    const view = render(<StudioAssetInput label="Ảnh nguồn" project={project} allowedTypes={["SOURCE_IMAGE"]} value={null} policy={policy} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Tệp tải lên cho Ảnh nguồn"), {
+      target: { files: [new File(["png"], "same.png", { type: "image/png" })] },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /Hủy tải lên/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Thử lại/ }));
+    await waitFor(() => expect(uploadAndVerifyAsset).toHaveBeenCalledTimes(2));
+    expect(uploadAndVerifyAsset.mock.calls[0]?.[0].requestId).toBe(uploadAndVerifyAsset.mock.calls[1]?.[0].requestId);
+
+    view.unmount();
+    render(<StudioAssetInput label="Ảnh nguồn" project={project} allowedTypes={["SOURCE_IMAGE"]} value={null} policy={policy} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Tệp tải lên cho Ảnh nguồn"), {
+      target: { files: [new File(["png"], "same.png", { type: "image/png" })] },
+    });
+    await waitFor(() => expect(uploadAndVerifyAsset).toHaveBeenCalledTimes(3));
+    expect(uploadAndVerifyAsset.mock.calls[2]?.[0].requestId).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
   });
 });
