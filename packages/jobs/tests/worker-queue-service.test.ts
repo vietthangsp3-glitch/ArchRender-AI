@@ -16,6 +16,13 @@ describe("worker lease and fencing", () => {
     expect(database.renderJob.updateMany).not.toHaveBeenCalled();
   });
 
+  it("rejects an invalid exact-job claim scope before touching persistence", async () => {
+    const database = { $transaction: vi.fn() };
+    const queue = new WorkerQueueService(database as never);
+    await expect(queue.claim("worker_test", 60, { jobId: "not-a-uuid" })).rejects.toMatchObject({ code: "JOB_INVALID_INPUT" });
+    expect(database.$transaction).not.toHaveBeenCalled();
+  });
+
   it("rejects a stale heartbeat using generation and token fencing", async () => {
     const database = {
       renderJob: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },

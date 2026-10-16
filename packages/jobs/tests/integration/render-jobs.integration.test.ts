@@ -91,15 +91,20 @@ describe.sequential("Milestone 2E PostgreSQL acceptance", () => {
   });
 
   it("atomically claims once and fences a worker after lease recovery", async () => {
-    const [left, right] = await Promise.all([queue.claim("integration-worker-a", 15), queue.claim("integration-worker-b", 15)]);
+    const scope = { jobId };
+    const [left, right] = await Promise.all([
+      queue.claim("integration-worker-a", 15, scope),
+      queue.claim("integration-worker-b", 15, scope),
+    ]);
     const claims = [left, right].filter((value) => value !== null);
     expect(claims).toHaveLength(1);
+    expect(claims[0]?.jobId).toBe(jobId);
     const stale = claims[0]!;
     await queue.start(stale);
     await database.renderJob.update({ where: { id: jobId }, data: { leaseExpiresAt: new Date(0) } });
     expect(await queue.recoverExpired(1)).toBe(1);
     await database.renderJob.update({ where: { id: jobId }, data: { nextAttemptAt: new Date(0) } });
-    const replacement = await queue.claim("integration-worker-c", 60);
+    const replacement = await queue.claim("integration-worker-c", 60, scope);
     expect(replacement?.generation).toBeGreaterThan(stale.generation);
     await expect(queue.succeed(stale)).rejects.toBeInstanceOf(JobApplicationError);
     await queue.start(replacement!);

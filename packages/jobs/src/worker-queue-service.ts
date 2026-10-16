@@ -22,6 +22,10 @@ export interface WorkerClaim {
   workflow: { modelId: string };
 }
 
+export interface WorkerClaimScope {
+  jobId: string;
+}
+
 interface ClaimedRow {
   id: string;
   ownerId: string;
@@ -41,9 +45,12 @@ export class WorkerQueueService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async claim(workerId: string, leaseSeconds = 60): Promise<WorkerClaim | null> {
+  async claim(workerId: string, leaseSeconds = 60, scope?: WorkerClaimScope): Promise<WorkerClaim | null> {
     if (!/^[A-Za-z0-9_-]{3,160}$/.test(workerId) || !Number.isInteger(leaseSeconds) || leaseSeconds < 15 || leaseSeconds > 600) {
       throw new JobApplicationError("JOB_INVALID_INPUT", "Invalid worker claim policy.");
+    }
+    if (scope && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(scope.jobId)) {
+      throw new JobApplicationError("JOB_INVALID_INPUT", "Invalid worker claim scope.");
     }
     const leaseToken = randomBytes(32).toString("base64url");
     const leaseTokenHash = hashToken(leaseToken);
@@ -54,6 +61,7 @@ export class WorkerQueueService {
           SELECT "id", "status" AS "previousStatus"
           FROM "RenderJob"
           WHERE "status" IN ('QUEUED'::"RenderJobStatus", 'RETRY_SCHEDULED'::"RenderJobStatus")
+            ${scope ? Prisma.sql`AND "id" = ${scope.jobId}::uuid` : Prisma.empty}
             AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${this.now()})
             AND "workflowVersionId" IS NOT NULL
             AND jsonb_typeof("inputSnapshot") = 'array'

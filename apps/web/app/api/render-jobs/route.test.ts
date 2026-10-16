@@ -35,6 +35,21 @@ describe("/api/render-jobs", () => {
     expect((await POST(request())).status).toBe(401);
   });
 
+  it("returns an empty owner-scoped page without treating it as an error", async () => {
+    mocks.list.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 });
+    const response = await GET(new Request("http://localhost:3000/api/render-jobs?page=1&pageSize=20"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, result: { items: [], total: 0, page: 1, pageSize: 20 } });
+    expect(mocks.list).toHaveBeenCalledWith(principal, { page: "1", pageSize: "20" });
+  });
+
+  it("maps database failures to a bounded 500 response", async () => {
+    mocks.list.mockRejectedValue(Object.assign(new Error("database unavailable"), { code: "P1001" }));
+    const response = await GET(new Request("http://localhost:3000/api/render-jobs"));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ ok: false, code: "JOB_UNEXPECTED_ERROR" });
+  });
+
   it("passes only the authenticated principal and parsed JSON to the service", async () => {
     mocks.submit.mockResolvedValue({ id: "00000000-0000-4000-8000-000000000005", status: "QUEUED" });
     const response = await POST(request());

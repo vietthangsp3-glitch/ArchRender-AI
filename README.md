@@ -1,6 +1,6 @@
 # ArchRender AI
 
-Premium AI architectural visualization workspace. Repository hiện chứa **Phase 1 UI Foundation**, **Phase 2A Database Foundation**, **Phase 2B Authentication & Authorization**, **Phase 2C Projects Management**, **Milestone 2D-A Storage Foundation**, **2D-B Secure Upload API** và **2D-C Asset Library UI**. AI Engine Docker V3 vẫn được giữ nguyên để tích hợp ở phase sau.
+Premium AI architectural visualization workspace. Repository hiện chứa nền tảng UI, Authentication/OWNER RBAC, Projects, private immutable R2 assets, Render Jobs/Job History, PostgreSQL worker queue, AI worker orchestration và Docker V4 private ComfyUI gateway. Docker V3 vẫn được giữ làm tài liệu legacy; GPU execution thật chưa được xác minh.
 
 ## Yêu cầu
 
@@ -129,17 +129,17 @@ RenderJob hoặc gọi GPU. Xem [Asset Library guide](docs/ASSET_LIBRARY.md).
 
 ## Trạng thái hiện tại
 
-- Tất cả dữ liệu job/GPU/cost đều có nhãn Demo.
+- Render Job và Job History dùng PostgreSQL thật. GPU/cost/provider telemetry vẫn có nhãn Demo hoặc `DISCONNECTED` cho tới khi có backend provider đáng tin cậy.
 - PostgreSQL schema bao gồm user/session, project/asset, render job/event,
   workflow version, GPU allocation, provider usage và activity log.
 - Repository dùng composite `id + ownerId` cho các lookup nhạy cảm và cung cấp
   transaction boundary dùng chung.
-- Project và Asset Library API/UI đã kết nối PostgreSQL; browser upload/preview dùng private R2. Job execution và GPU provisioning chưa được triển khai.
+- Project, Asset Library và Render Job API/UI đã kết nối PostgreSQL; browser upload/preview dùng private R2. Worker/private gateway đã có mã nguồn và mock orchestration tests, nhưng GPU provisioning và real render chưa được chạy.
 - Auth 2B bảo vệ route và OWNER do người vận hành bootstrap được dùng cho Project ownership.
 - Không có API key hoặc secret trong source.
-- Không gọi GPU, Vast.ai, RunPod hay ComfyUI.
+- Không tự gọi GPU, Vast.ai hoặc RunPod. ComfyUI chỉ được gọi khi operator chủ động khởi chạy private Docker V4.
 - Docker V3 không bị sửa, di chuyển hoặc ghi đè.
-- Xem [kiến trúc](docs/ARCHITECTURE.md) và [AI Engine audit](docs/AI_ENGINE_AUDIT.md).
+- Xem [trạng thái triển khai](docs/IMPLEMENTATION_STATUS.md), [kiến trúc](docs/ARCHITECTURE.md), [GPU deployment](docs/GPU_DEPLOYMENT.md) và [runbook](docs/OPERATIONS_RUNBOOK.md).
 
 ## Các bước cấu hình thủ công
 

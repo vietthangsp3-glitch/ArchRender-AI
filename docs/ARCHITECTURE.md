@@ -1,4 +1,6 @@
-# ArchRender AI — Kiến trúc sau Milestone 2D-C
+# ArchRender AI — Kiến trúc hiện tại
+
+> Ghi chú 2026-10-16: tài liệu lịch sử bên dưới mô tả tiến trình từ Phase 2D-C. Trạng thái thực tế mới nhất nằm tại [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). Render Jobs, private AI gateway và GPU worker đã có mã nguồn; GPU execution thật vẫn chưa được kiểm chứng.
 
 ## Phạm vi
 

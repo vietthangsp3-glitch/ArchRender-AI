@@ -122,7 +122,17 @@ export class AiWorkerRuntime {
       throw new AiEngineError("AI_ENGINE_TIMEOUT", "Execution exceeded its time budget.", true);
     } catch (error) {
       const safe = safeEngineError(error);
-      await this.queue.fail(claim, safe.code, safe.retryable);
+      try {
+        await this.queue.fail(claim, safe.code, safe.retryable);
+      } catch (queueError) {
+        const code = queueError && typeof queueError === "object" && "code" in queueError
+          ? (queueError as { code?: unknown }).code
+          : undefined;
+        // Lease recovery may have reassigned the job while the engine call was in flight.
+        // The old worker is already fenced, so it must stop quietly instead of terminating
+        // the whole polling process. Transport/database errors still escape and fail closed.
+        if (code !== "JOB_STALE_WORKER") throw queueError;
+      }
       return "FAILED";
     } finally {
       if (!inputsCleaned) await this.inputs.cleanup(claim).catch(() => undefined);

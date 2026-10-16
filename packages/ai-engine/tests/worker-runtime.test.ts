@@ -56,6 +56,25 @@ describe("AI worker runtime", () => {
     expect(engine.submit).not.toHaveBeenCalled();
   });
 
+  it("does not terminate the polling process when lease recovery fences failure reporting", async () => {
+    const queue = {
+      claim: vi.fn(async () => claim), start: vi.fn(async () => undefined), heartbeat: vi.fn(async () => undefined),
+      succeed: vi.fn(async () => undefined),
+      fail: vi.fn(async () => { throw Object.assign(new Error("stale"), { code: "JOB_STALE_WORKER" }); }),
+      acknowledgeCancel: vi.fn(async () => undefined), isCancelRequested: vi.fn(async () => false),
+    } satisfies QueuePort;
+    const engine = {
+      providerId: "fake", health: vi.fn(async () => "DISCONNECTED" as const), submit: vi.fn(), status: vi.fn(),
+      cancel: vi.fn(async () => undefined), readOutput: vi.fn(),
+    } as unknown as AiEngineAdapter;
+    const runtime = new AiWorkerRuntime(queue, engine, { materialize: vi.fn(), cleanup: vi.fn(async () => undefined) }, { commit: vi.fn() }, {
+      workerId: "worker_test", manifest, availableNodeClasses: new Set(),
+      budget: { timeoutMs: 5000, pollIntervalMs: 250, maxOutputBytes: 1024, maxEstimatedVramMb: 2048, maxAttempts: 1 },
+    });
+    await expect(runtime.runOnce()).resolves.toBe("FAILED");
+    expect(queue.fail).toHaveBeenCalledWith(claim, "AI_ENGINE_DISCONNECTED", true);
+  });
+
   it("propagates cancellation and cleans staged inputs before acknowledging", async () => {
     const queue = {
       claim: vi.fn(async () => claim), start: vi.fn(async () => undefined), heartbeat: vi.fn(async () => undefined),
