@@ -1,0 +1,40 @@
+ARG COMFYUI_IMAGE=archrender/comfyui:v4-comfyui-0.36.0
+FROM ${COMFYUI_IMAGE}
+
+LABEL org.opencontainers.image.source="https://github.com/vietthangsp3-glitch/ArchRender-AI" \
+      org.opencontainers.image.title="ArchRender AI RunPod GPU Runtime" \
+      org.opencontainers.image.description="Pinned ComfyUI and authenticated ArchRender gateway for RunPod"
+
+USER root
+
+ENV ARCHRENDER_RUNPOD_MODE=blocked \
+    ARCHRENDER_PERSIST_ROOT=/workspace/archrender \
+    AI_ENGINE_COMFYUI_URL=http://127.0.0.1:8188 \
+    AI_ENGINE_GATEWAY_BIND_HOST=0.0.0.0 \
+    AI_ENGINE_GATEWAY_PORT=8080 \
+    ARCHRENDER_GATEWAY_EXPOSURE=runpod_proxy \
+    AI_ENGINE_MODEL_MANIFEST_PATH=/workspace/archrender/state/models.verified.manifest.json \
+    AI_ENGINE_MAX_REQUEST_BYTES=1048576 \
+    AI_ENGINE_MAX_INPUT_BYTES=104857600 \
+    AI_ENGINE_UPSTREAM_TIMEOUT_SECONDS=30
+
+COPY --chown=root:root gateway/gateway.py /opt/archrender/gateway.py
+COPY --chown=root:root config/models.manifest.json /opt/archrender/config/models.manifest.json
+COPY --chown=root:root scripts/runpod-entrypoint.sh /usr/local/bin/archrender-runpod-entrypoint
+COPY --chown=root:root scripts/runpod-supervisor.py /opt/archrender/runpod-supervisor.py
+COPY --chown=root:root scripts/runpod-healthcheck.py /opt/archrender/runpod-healthcheck.py
+COPY --chown=root:root scripts/verify-model-files.py /opt/archrender/verify-model-files.py
+
+RUN chmod 0555 \
+      /usr/local/bin/archrender-runpod-entrypoint \
+      /opt/archrender/gateway.py \
+      /opt/archrender/runpod-supervisor.py \
+      /opt/archrender/runpod-healthcheck.py \
+      /opt/archrender/verify-model-files.py \
+    && chmod 0444 /opt/archrender/config/models.manifest.json
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=180s --retries=4 \
+  CMD ["python", "/opt/archrender/runpod-healthcheck.py"]
+
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/archrender-runpod-entrypoint"]

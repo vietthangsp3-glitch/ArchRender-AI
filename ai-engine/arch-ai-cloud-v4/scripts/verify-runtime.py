@@ -25,4 +25,10 @@ cudnn_version = torch.backends.cudnn.version()
 if cudnn_version is None or str(cudnn_version)[0] != os.environ["ARCHRENDER_CUDNN_MAJOR"]:
     fail("CUDNN_MAJOR")
 
+if os.environ.get("ARCHRENDER_REQUIRE_CUDA", "0") == "1":
+    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
+        fail("CUDA_DEVICE")
+    if torch.cuda.get_device_properties(0).total_memory < 22 * 1024**3:
+        fail("CUDA_VRAM")
+
 print("RUNTIME_PIN_OK")

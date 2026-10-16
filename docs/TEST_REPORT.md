@@ -13,6 +13,8 @@
 | GPU image acceptance plan | PASS plan; 4 image jobs, no provisioning, no video |
 | Docker Compose config | PASS with an ephemeral placeholder token |
 | Docker V4 images | PASS — gateway and ComfyUI images built locally; ComfyUI image 12,401,459,019 bytes |
+| RunPod single image | PASS — local build and CPU-only supervised boot |
+| RunPod process/security smoke | PASS — loopback ComfyUI, gateway 401, UID 10001 children, health READY, graceful exit 0 |
 | ComfyUI runtime pins | PASS — non-GPU `verify-runtime.py` confirmed commit, PyTorch, CUDA build metadata and cuDNN major |
 | Gateway Compose smoke | PASS — localhost port published, expected `DEGRADED` without upstream, unauthenticated request rejected 401 |
 | Worker disconnected boot | PASS — exited safely without database, queue or storage access |
@@ -42,6 +44,9 @@ No real R2 call, production database mutation, model download or GPU execution w
 - Backend/database queue: PASS in development integration.
 - Browser-to-job API: PASS by local tests/build; production redeployment is pending.
 - Worker-to-fake-engine orchestration: PASS.
-- Docker V4: static/build PASS; gateway and disconnected worker boot PASS. ComfyUI CUDA boot remains NOT VERIFIED because this host has no usable NVIDIA device and 0/4 model artifacts are installed.
+- Docker V4: static/build PASS; gateway, disconnected worker and RunPod CPU-mode ComfyUI boot PASS.
+  A pinned PyTorch 2.6 / comfy-kitchen 0.2.34 annotation incompatibility found by smoke was fixed by
+  a version-gated build patch. CUDA boot remains NOT VERIFIED because this host has no usable NVIDIA
+  device and 0/4 model artifacts are installed.
 - Real SDXL/ControlNet/Upscale: BLOCKED pending paid GPU and model bytes.
 - Wan video: BLOCKED and intentionally disabled.

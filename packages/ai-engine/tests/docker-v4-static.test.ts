@@ -33,6 +33,31 @@ describe("Docker V4 static security contract", () => {
     const dockerfile = await readFile(resolve(root, "Dockerfile.comfyui"), "utf8");
     expect(start).toContain("--disable-api-nodes");
     expect(dockerfile).not.toMatch(/download-model|huggingface-cli|wget .*safetensors/i);
+    expect(dockerfile).toContain("patch-comfy-kitchen.py");
+    const patch = await readFile(resolve(root, "scripts/patch-comfy-kitchen.py"), "utf8");
+    expect(patch).toContain('EXPECTED_PACKAGE_VERSION = "0.2.34"');
+    expect(patch).toContain('EXPECTED_TORCH_VERSION = "2.6.0"');
+    expect(patch).toContain("COMFY_KITCHEN_PATCH_TARGETS_NOT_FOUND");
+  });
+
+  it("packages a fail-closed single-image Runpod runtime", async () => {
+    const dockerfile = await readFile(resolve(root, "Dockerfile.runpod"), "utf8");
+    const entrypoint = await readFile(resolve(root, "scripts/runpod-entrypoint.sh"), "utf8");
+    const supervisor = await readFile(resolve(root, "scripts/runpod-supervisor.py"), "utf8");
+    expect(dockerfile).toContain("ARG COMFYUI_IMAGE=archrender/comfyui:v4-comfyui-0.36.0");
+    expect(dockerfile).toContain("ARCHRENDER_RUNPOD_MODE=blocked");
+    expect(dockerfile).toContain('org.opencontainers.image.source="https://github.com/vietthangsp3-glitch/ArchRender-AI"');
+    expect(dockerfile).toContain("HEALTHCHECK");
+    expect(entrypoint).toContain("START_MODE_NOT_APPROVED");
+    expect(entrypoint).toContain("verify-model-files.py");
+    expect(entrypoint).toContain("setpriv --reuid=10001 --regid=10001 --clear-groups");
+    expect(supervisor).toContain('"--listen",\n        "127.0.0.1"');
+    expect(supervisor).toContain('"--disable-all-custom-nodes"');
+    expect(supervisor).not.toContain("@archrender/ai-worker");
+    expect(dockerfile).not.toMatch(/DATABASE_URL|R2_SECRET|AUTH_CONTEXT_SECRET/);
+    const dockerignore = await readFile(resolve(root, ".dockerignore"), "utf8");
+    expect(dockerignore).toMatch(/^runtime\/?$/m);
+    expect(dockerignore).toMatch(/^\.env\.\*$/m);
   });
 
   it("pins the runtime and keeps the acceptance harness fail-closed", async () => {
@@ -41,6 +66,12 @@ describe("Docker V4 static security contract", () => {
     const harness = await readFile(resolve(root, "scripts/gpu-image-acceptance.mjs"), "utf8");
     expect(harness).toContain("PHASE3_IMAGE_ACCEPTANCE_APPROVED");
     expect(harness).toContain("maxRuntimeMinutes");
+    expect(harness).toContain("fetchVerifiedRunpodManifest");
+    expect(harness).toContain('from "./runpod-manifest-contract.mjs"');
+    expect(harness).toContain("runtime/models.verified.runpod.json");
+    const remoteManifestContract = await readFile(resolve(root, "scripts/runpod-manifest-contract.mjs"), "utf8");
+    expect(remoteManifestContract).toContain("RUNPOD_MODEL_IDENTITY_MISMATCH");
+    expect(remoteManifestContract).toContain("RUNPOD_MODEL_SCOPE_INVALID");
     expect(harness).toContain('execFileSync("docker"');
     expect(harness).toContain('"compose"');
     expect(harness).not.toMatch(/Write-(?:Host|Output).*TOKEN/i);

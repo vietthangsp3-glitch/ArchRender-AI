@@ -1,0 +1,10 @@
+.env
+.env.*
+runtime
+runtime/**
+fixtures
+fixtures/**
+**/__pycache__
+**/*.pyc
+gateway/test_gateway.py
+scripts/test_*.py

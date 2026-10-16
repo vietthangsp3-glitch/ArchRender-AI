@@ -23,12 +23,16 @@ from typing import Any
 
 TOKEN = os.environ.get("AI_ENGINE_WORKER_TOKEN", "")
 COMFYUI_URL = os.environ.get("AI_ENGINE_COMFYUI_URL", "http://comfyui:8188").rstrip("/")
+GATEWAY_BIND_HOST = os.environ.get("AI_ENGINE_GATEWAY_BIND_HOST", "127.0.0.1")
+GATEWAY_PORT = int(os.environ.get("AI_ENGINE_GATEWAY_PORT", "8080"))
+GATEWAY_EXPOSURE = os.environ.get("ARCHRENDER_GATEWAY_EXPOSURE", "private")
 MAX_REQUEST_BYTES = int(os.environ.get("AI_ENGINE_MAX_REQUEST_BYTES", "1048576"))
 MAX_INPUT_BYTES = int(os.environ.get("AI_ENGINE_MAX_INPUT_BYTES", "104857600"))
 UPSTREAM_TIMEOUT = int(os.environ.get("AI_ENGINE_UPSTREAM_TIMEOUT_SECONDS", "30"))
 OUTPUT_ROOT = Path(os.environ.get("AI_ENGINE_OUTPUT_ROOT", "/engine-output")).resolve()
 INPUT_ROOT = Path(os.environ.get("AI_ENGINE_INPUT_ROOT", "/engine-input")).resolve()
 STATE_PATH = Path(os.environ.get("AI_ENGINE_STATE_PATH", "/engine-state/executions.json")).resolve()
+MODEL_MANIFEST_PATH = Path(os.environ.get("AI_ENGINE_MODEL_MANIFEST_PATH", "/engine-state/models.verified.manifest.json")).resolve()
 SAFE_ID = re.compile(r"^[0-9a-f-]{36}$")
 SAFE_FILE = re.compile(r"^[A-Za-z0-9_.-]{1,180}$")
 ALLOWED_NODES = {
@@ -75,8 +79,21 @@ def require_configuration() -> None:
     if len(TOKEN) < 32:
         raise RuntimeError("AI_ENGINE_WORKER_TOKEN must contain at least 32 characters")
     parsed = urllib.parse.urlparse(COMFYUI_URL)
-    if parsed.scheme != "http" or parsed.hostname != "comfyui" or parsed.port != 8188:
-        raise RuntimeError("AI_ENGINE_COMFYUI_URL must target the private compose service")
+    if parsed.scheme != "http" or (parsed.hostname, parsed.port) not in {
+        ("comfyui", 8188),
+        ("127.0.0.1", 8188),
+    } or parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+        raise RuntimeError("AI_ENGINE_COMFYUI_URL must target the private engine endpoint")
+    if GATEWAY_BIND_HOST not in {"127.0.0.1", "0.0.0.0"}:
+        raise RuntimeError("AI_ENGINE_GATEWAY_BIND_HOST is invalid")
+    if not 1024 <= GATEWAY_PORT <= 65535:
+        raise RuntimeError("AI_ENGINE_GATEWAY_PORT is outside the safe range")
+    allowed_exposure = {
+        "127.0.0.1": {"private"},
+        "0.0.0.0": {"compose_localhost", "runpod_proxy"},
+    }
+    if GATEWAY_EXPOSURE not in allowed_exposure[GATEWAY_BIND_HOST]:
+        raise RuntimeError("ARCHRENDER_GATEWAY_EXPOSURE does not authorize the bind address")
     if not 1024 <= MAX_REQUEST_BYTES <= 4 * 1024 * 1024:
         raise RuntimeError("AI_ENGINE_MAX_REQUEST_BYTES is outside the safe range")
     if not 1024 <= MAX_INPUT_BYTES <= 512 * 1024 * 1024:
@@ -112,6 +129,15 @@ def validate_prompt(prompt: Any) -> dict[str, Any]:
     return prompt
 
 
+def load_verified_manifest() -> dict[str, Any]:
+    if not MODEL_MANIFEST_PATH.is_file() or MODEL_MANIFEST_PATH.stat().st_size > 64 * 1024:
+        raise ValueError("manifest unavailable")
+    manifest = json.loads(MODEL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict) or manifest.get("schemaVersion") != 2:
+        raise ValueError("invalid manifest")
+    return manifest
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "ArchRenderGateway/4"
 
@@ -128,6 +154,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(HTTPStatus.OK, {"status": "DEGRADED"})
             return
         if not self.authorized():
+            return
+        if self.path == "/v1/model-manifest":
+            self.model_manifest()
             return
         output_match = re.fullmatch(r"/v1/executions/([0-9a-f-]{36})/outputs/([A-Za-z0-9_.-]{1,180})", self.path)
         if output_match:
@@ -176,6 +205,12 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(HTTPStatus.UNAUTHORIZED, {"code": "UNAUTHORIZED"})
             return False
         return True
+
+    def model_manifest(self) -> None:
+        try:
+            self.reply(HTTPStatus.OK, load_verified_manifest())
+        except (OSError, ValueError, json.JSONDecodeError):
+            self.reply(HTTPStatus.SERVICE_UNAVAILABLE, {"code": "MODEL_MANIFEST_UNAVAILABLE"})
 
     def json_body(self) -> dict[str, Any]:
         length_text = self.headers.get("Content-Length", "")
@@ -383,5 +418,5 @@ def media_type(filename: str) -> str:
 
 if __name__ == "__main__":
     require_configuration()
-    ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+    ThreadingHTTPServer((GATEWAY_BIND_HOST, GATEWAY_PORT), Handler).serve_forever()
 

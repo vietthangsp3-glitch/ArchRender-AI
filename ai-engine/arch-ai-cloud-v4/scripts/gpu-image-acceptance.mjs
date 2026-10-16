@@ -4,6 +4,8 @@ import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateRemoteManifest } from "./runpod-manifest-contract.mjs";
+
 process.on("uncaughtException", () => {
   console.error(JSON.stringify({ event: "GPU_IMAGE_ACCEPTANCE_FAILED", code: "UNEXPECTED_ERROR" }));
   process.exit(1);
@@ -15,6 +17,8 @@ process.on("unhandledRejection", () => {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const execute = process.argv.includes("--execute");
+const target = process.env.GPU_ACCEPTANCE_TARGET ?? "compose";
+if (!new Set(["compose", "runpod"]).has(target)) fail("GPU_ACCEPTANCE_TARGET_INVALID");
 const maxRuntimeMinutes = integerEnv("GPU_ACCEPTANCE_MAX_RUNTIME_MINUTES", 45, 10, 45);
 const hardCostCapUsd = numberEnv("GPU_ACCEPTANCE_HARD_COST_CAP_USD", 1.0, 0.01, 1.0);
 const quotedHourlyUsd = numberEnv("GPU_ACCEPTANCE_QUOTED_HOURLY_USD", 0, 0, 10);
@@ -23,7 +27,8 @@ const estimatedCostUsd = quotedHourlyUsd * maxRuntimeMinutes / 60 + fixedCostUsd
 const fixtureDirectory = resolve(root, "fixtures");
 const runtimeDirectory = resolve(root, "runtime/acceptance");
 const recoveryPath = resolve(runtimeDirectory, "recovery.json");
-const manifestPath = resolve(root, "runtime/models.verified.manifest.json");
+const composeManifestPath = resolve(root, "runtime/models.verified.manifest.json");
+const runpodManifestPath = resolve(root, "runtime/models.verified.runpod.json");
 const composeFile = resolve(root, "docker-compose.yml");
 const fixtureCriteria = JSON.parse(await readFile(resolve(fixtureDirectory, "golden-courtyard.criteria.json"), "utf8"));
 const fixtureBytes = new Map();
@@ -39,6 +44,7 @@ for (const input of fixtureCriteria.inputs) {
 const plan = {
   event: "GPU_IMAGE_ACCEPTANCE_PLAN",
   mode: execute ? "EXECUTE" : "PLAN",
+  target: target.toUpperCase(),
   providerProvisioning: false,
   maxRuntimeMinutes,
   hardCostCapUsd,
@@ -57,11 +63,25 @@ if (process.env.GPU_ACCEPTANCE_APPROVAL !== "PHASE3_IMAGE_ACCEPTANCE_APPROVED") 
 if (quotedHourlyUsd <= 0 || estimatedCostUsd > hardCostCapUsd) fail("COST_CAP_INVALID");
 if ((process.env.AI_ENGINE_WORKER_TOKEN ?? "").length < 32) fail("WORKER_TOKEN_INVALID");
 if (await exists(recoveryPath)) fail("RECOVERY_OBLIGATION_EXISTS");
+if (target === "runpod") {
+  const gatewayUrl = new URL(process.env.AI_ENGINE_GATEWAY_URL ?? "http://invalid");
+  if (gatewayUrl.protocol !== "https:" || gatewayUrl.username || gatewayUrl.password || gatewayUrl.pathname !== "/" || gatewayUrl.search || gatewayUrl.hash) {
+    fail("RUNPOD_GATEWAY_HTTPS_REQUIRED");
+  }
+}
 
-execFileSync(process.execPath, [resolve(root, "scripts/verify-models.mjs"), "--promote"], {
-  cwd: root, stdio: ["ignore", "pipe", "pipe"], timeout: 30 * 60_000,
-});
-const models = JSON.parse(await readFile(manifestPath, "utf8"));
+let manifestPath = composeManifestPath;
+let models;
+if (target === "compose") {
+  execFileSync(process.execPath, [resolve(root, "scripts/verify-models.mjs"), "--promote"], {
+    cwd: root, stdio: ["ignore", "pipe", "pipe"], timeout: 30 * 60_000,
+  });
+  models = JSON.parse(await readFile(manifestPath, "utf8"));
+} else {
+  models = await fetchVerifiedRunpodManifest();
+  manifestPath = runpodManifestPath;
+  await persistJsonFile(manifestPath, models);
+}
 const baseModel = readyModel(models, "architecture_image_sdxl");
 const controlModel = readyModel(models, "architecture_image_sdxl_control");
 const upscaleModel = readyModel(models, "architecture_upscale_realesrgan_x4plus");
@@ -72,7 +92,8 @@ const runDirectory = resolve(runtimeDirectory, runId);
 const deadline = Date.now() + maxRuntimeMinutes * 60_000;
 const state = {
   schemaVersion: 1, runId, state: "PREPARED", createdAt: new Date().toISOString(),
-  obligations: [{ kind: "COMPOSE_PROJECT", identity: project }],
+  target,
+  obligations: target === "compose" ? [{ kind: "COMPOSE_PROJECT", identity: project }] : [],
 };
 await mkdir(runDirectory, { recursive: true });
 await persistRecovery(state);
@@ -80,9 +101,11 @@ await persistRecovery(state);
 let composeStarted = false;
 let passed = false;
 try {
-  compose(["config", "--quiet"], 30_000);
-  composeStarted = true;
-  compose(["up", "--build", "--detach", "--wait"], Math.min(20 * 60_000, remaining()));
+  if (target === "compose") {
+    compose(["config", "--quiet"], 30_000);
+    composeStarted = true;
+    compose(["up", "--build", "--detach", "--wait"], Math.min(20 * 60_000, remaining()));
+  }
   state.state = "RUNNING";
   await persistRecovery(state);
   await requireAuthDenial();
@@ -234,6 +257,23 @@ function compileUpscale(model, source) {
 
 function node(class_type, inputs) { return { class_type, inputs, _meta: { title: "Bounded acceptance" } }; }
 function readyModel(manifest, id) { const model = manifest.models.find((item) => item.id === id); if (!model || model.status !== "READY" || model.artifacts.some((item) => item.status !== "VERIFIED")) fail("MODEL_NOT_READY"); return model; }
+async function fetchVerifiedRunpodManifest() {
+  const response = await fetch(new URL("/v1/model-manifest", process.env.AI_ENGINE_GATEWAY_URL), {
+    headers: authHeaders(), redirect: "error", signal: AbortSignal.timeout(30_000),
+  });
+  if (response.status !== 200 || response.headers.get("content-type") !== "application/json") fail("RUNPOD_MODEL_MANIFEST_UNAVAILABLE");
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > 64 * 1024) fail("RUNPOD_MODEL_MANIFEST_INVALID");
+  let remote;
+  try { remote = JSON.parse(Buffer.from(bytes).toString("utf8")); } catch { fail("RUNPOD_MODEL_MANIFEST_INVALID"); }
+  const source = JSON.parse(await readFile(resolve(root, "config/models.manifest.json"), "utf8"));
+  try {
+    validateRemoteManifest(source, remote);
+  } catch (error) {
+    fail(error?.code ?? "RUNPOD_MODEL_MANIFEST_INVALID");
+  }
+  return remote;
+}
 function authHeaders(extra = {}) { return { authorization: `Bearer ${process.env.AI_ENGINE_WORKER_TOKEN}`, accept: "application/json", ...extra }; }
 async function request(path, init = {}) { ensureTime(); return fetch(new URL(path, process.env.AI_ENGINE_GATEWAY_URL ?? "http://127.0.0.1:8189"), { ...init, redirect: "error", signal: AbortSignal.timeout(Math.min(30_000, remaining())) }); }
 async function cleanupRequest(path, init = {}) { return fetch(new URL(path, process.env.AI_ENGINE_GATEWAY_URL ?? "http://127.0.0.1:8189"), { ...init, redirect: "error", signal: AbortSignal.timeout(10_000) }); }
@@ -246,4 +286,5 @@ function integerEnv(name, fallback, min, max) { const value = Number(process.env
 function numberEnv(name, fallback, min, max) { const value = Number(process.env[name] ?? fallback); if (!Number.isFinite(value) || value < min || value > max) fail(`${name}_INVALID`); return value; }
 async function exists(path) { try { await readFile(path); return true; } catch (error) { if (error?.code === "ENOENT") return false; throw error; } }
 async function persistRecovery(value) { await mkdir(runtimeDirectory, { recursive: true }); const body = `${JSON.stringify(value, null, 2)}\n`; const temporary = `${recoveryPath}.${process.pid}.tmp`; const handle = await open(temporary, "wx"); try { await handle.writeFile(body, "utf8"); await handle.sync(); } finally { await handle.close(); } await rename(temporary, recoveryPath); const finalHandle = await open(recoveryPath, "r+"); try { await finalHandle.sync(); } finally { await finalHandle.close(); } if (await readFile(recoveryPath, "utf8") !== body) fail("RECOVERY_MANIFEST_READBACK_FAILED"); }
+async function persistJsonFile(path, value) { await mkdir(dirname(path), { recursive: true }); const body = `${JSON.stringify(value, null, 2)}\n`; const temporary = `${path}.${process.pid}.tmp`; const handle = await open(temporary, "wx"); try { await handle.writeFile(body, "utf8"); await handle.sync(); } finally { await handle.close(); } await rename(temporary, path); const finalHandle = await open(path, "r+"); try { await finalHandle.sync(); } finally { await finalHandle.close(); } if (await readFile(path, "utf8") !== body) fail("RUNPOD_MANIFEST_READBACK_FAILED"); }
 function fail(code) { console.error(JSON.stringify({ event: "GPU_IMAGE_ACCEPTANCE_FAILED", code })); process.exitCode = 1; throw new Error(code); }

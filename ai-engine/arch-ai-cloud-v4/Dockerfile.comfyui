@@ -25,6 +25,15 @@ RUN git clone --branch "${COMFYUI_VERSION}" --depth 1 https://github.com/Comfy-O
     && python -m pip install --no-cache-dir -r "${COMFYUI_HOME}/requirements.txt" \
     && chown -R archrender:archrender "${COMFYUI_HOME}"
 
+# ComfyUI v0.36.0 pins comfy-kitchen 0.2.34, whose PEP-585 custom-op
+# annotations require torch >=2.7. The CUDA 12.4 runtime is deliberately pinned
+# to torch 2.6, so apply the narrow, fail-closed upstream compatibility rewrite
+# and prove that the package imports before publishing the layer.
+COPY scripts/patch-comfy-kitchen.py /tmp/patch-comfy-kitchen.py
+RUN python /tmp/patch-comfy-kitchen.py \
+    && python -c "import comfy_kitchen" \
+    && rm /tmp/patch-comfy-kitchen.py
+
 COPY --chown=archrender:archrender scripts/start-comfyui.sh /usr/local/bin/start-comfyui
 COPY --chown=archrender:archrender scripts/verify-runtime.py /usr/local/lib/archrender/verify-runtime.py
 RUN chmod 0555 /usr/local/bin/start-comfyui /usr/local/lib/archrender/verify-runtime.py

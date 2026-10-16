@@ -48,3 +48,18 @@ Static validation and mock execution are not GPU acceptance. Real acceptance mus
 budget, synthetic fixtures, bounded jobs, provider billing caps, immutable R2 output verification,
 and explicit operator approval. See `docs/GPU_ACCEPTANCE_PLAN.md`.
 
+## RunPod single-image runtime
+
+`Dockerfile.runpod` packages the pinned ComfyUI runtime and authenticated private gateway in one
+RunPod-compatible image. It does not replace the two-service development Compose stack. The image
+defaults to `ARCHRENDER_RUNPOD_MODE=blocked`; `smoke` permits CPU boot without models, while
+`acceptance` requires one CUDA device with at least 22 GiB VRAM and verifies the exact four model
+files before either process starts.
+
+The root entrypoint only prepares the mounted `/workspace/archrender` directories. The supervisor,
+ComfyUI and gateway run as UID/GID 10001. ComfyUI listens only on loopback port 8188; expose only
+gateway port 8080 through the RunPod HTTPS proxy. The GPU image intentionally contains no worker,
+database or R2 credentials. Run the long-lived `@archrender/ai-worker` separately and explicitly.
+
+Local build, registry and deployment commands are in `docs/GPU_DEPLOYMENT.md` at repository root.
+

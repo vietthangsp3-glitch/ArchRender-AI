@@ -58,7 +58,8 @@ quote and keep the same cap.
   3,314,094,972 bytes. Final V4 pull/build size is UNKNOWN until built; estimate 4-6 GB compressed,
   10-14 GB expanded, plus 7.8 GB weights and bounded temporary/output space.
 - Verify exact base digest, ComfyUI commit, runtime pin, zero custom nodes, model files and licenses.
-- Keep ComfyUI internal; expose the authenticated gateway only through an SSH tunnel or localhost.
+- Use `Dockerfile.runpod` on RunPod. ComfyUI stays on container loopback; expose only the
+  authenticated gateway on port 8080 through the provider HTTPS proxy.
 - Run `docker compose config --quiet`; never inject database, R2, session or provider credentials.
 - ENOMEM response: stop new submissions, capture only redacted phase/status, cancel the exact job,
   bring down the dedicated Compose project, and terminate the Pod. Do not add a second GPU or retry
@@ -71,12 +72,16 @@ set the development/approval/cost environment guards and run with `--execute`. T
 
 1. validates three synthetic 1024x1024 fixtures and their SHA-256 values;
 2. verifies all expected model bytes, writes a durable promoted manifest, then durably records exact
-   Compose project, staged input and output recovery identities before each mutation;
+   target, staged input and output recovery identities before each mutation;
 3. enforces a 45-minute wall cap and USD 1.00 computed cap;
 4. tests gateway auth denial, sequential SDXL img2img, Canny, Depth and x4 upscale;
 5. validates PNG magic, byte bounds, dimensions and checksums, and saves ignored local evidence;
-6. deletes staged inputs by exact workspace/name/checksum, destroys only the dedicated Compose
-   volumes, and removes the recovery manifest only at zero obligations.
+6. deletes staged inputs by exact workspace/name/checksum, destroys only dedicated local Compose
+   volumes for the Compose target, and removes the recovery manifest only at zero obligations.
+
+For RunPod set `GPU_ACCEPTANCE_TARGET=runpod` and an HTTPS `AI_ENGINE_GATEWAY_URL`. The harness does
+not start or stop the remote Pod. It remains bounded to four sequential jobs, a 45-minute wall cap
+and the operator-supplied USD 1.00 hard cap. Pod and volume teardown are manual fail-closed steps.
 
 Manual output acceptance uses `fixtures/golden-courtyard.criteria.json`: score at least 8/10, preserve
 the two wings, perspective, window groups, doorway/tree/paving positions, and reject collapsed or
