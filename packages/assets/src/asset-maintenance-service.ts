@@ -26,6 +26,7 @@ export interface MaintenanceOptions {
   limit?: number;
   dryRun?: boolean;
   confirmedEnvironment?: AssetStorageConfig["environment"];
+  ownerId?: string;
 }
 
 export class AssetMaintenanceService {
@@ -45,7 +46,7 @@ export class AssetMaintenanceService {
     const now = this.now();
     const staleBefore = new Date(now.getTime() - this.config.verificationStaleSeconds * 1_000);
     const assets = new AssetRepository(this.database);
-    const candidates = await assets.listCleanupCandidates(now, staleBefore, limit);
+    const candidates = await assets.listCleanupCandidates(now, staleBefore, limit, options.ownerId);
     const result: MaintenanceResult = {
       scanned: candidates.length,
       plannedDeletes: 0,

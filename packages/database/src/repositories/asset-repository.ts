@@ -191,9 +191,22 @@ export class AssetRepository {
     return this.database.asset.count({ where: { ownerId, createdAt: { gte: since } } });
   }
 
-  countConcurrentUploads(ownerId: string) {
+  countConcurrentUploads(ownerId: string, now = new Date()) {
     return this.database.asset.count({
-      where: { ownerId, status: { in: ["PENDING_UPLOAD", "VERIFYING"] }, deletedAt: null },
+      where: {
+        ownerId,
+        deletedAt: null,
+        OR: [
+          { status: "VERIFYING" },
+          {
+            status: "PENDING_UPLOAD",
+            OR: [
+              { uploadExpiresAt: null },
+              { uploadExpiresAt: { gt: now } },
+            ],
+          },
+        ],
+      },
     });
   }
 
@@ -266,9 +279,10 @@ export class AssetRepository {
     });
   }
 
-  listCleanupCandidates(now: Date, staleVerificationBefore: Date, take: number) {
+  listCleanupCandidates(now: Date, staleVerificationBefore: Date, take: number, ownerId?: string) {
     return this.database.asset.findMany({
       where: {
+        ...(ownerId ? { ownerId } : {}),
         deletedAt: null,
         OR: [
           { status: "DELETED" },

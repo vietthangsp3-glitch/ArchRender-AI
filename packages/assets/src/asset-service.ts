@@ -158,7 +158,7 @@ export class AssetService {
         const minuteAgo = new Date(this.now().getTime() - 60_000);
         const [recentInitiatedUploads, concurrentUploads, reservedBytes] = await Promise.all([
           transactionAssets.countRecentInitiated(principal.id, minuteAgo),
-          transactionAssets.countConcurrentUploads(principal.id),
+          transactionAssets.countConcurrentUploads(principal.id, this.now()),
           transactionAssets.reservedBytes(principal.id),
         ]);
         assertUploadCapacity(
