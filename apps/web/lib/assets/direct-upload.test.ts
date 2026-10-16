@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { browserUploadHeaders, uploadDirectlyToStorage } from "./direct-upload";
+import { browserUploadHeaders, classifyR2ErrorResponse, uploadDirectlyToStorage } from "./direct-upload";
 
 class FakeXhr {
   static latest: FakeXhr;
   status = 200;
+  responseText = "";
   timeout = 0;
   uploadListeners = new Map<string, (event: ProgressEvent) => void>();
   listeners = new Map<string, () => void>();
@@ -65,5 +66,40 @@ describe("direct browser upload contract", () => {
     const error = await pending.catch((reason: unknown) => reason);
     expect(error).toMatchObject({ name: "DirectUploadError", code, ...(httpStatus ? { httpStatus } : {}) });
     expect(String((error as Error).message)).not.toContain("signed.invalid");
+  });
+
+  it.each([
+    ["SignatureDoesNotMatch", "R2_SIGNATURE_MISMATCH"],
+    ["AccessDenied", "R2_ACCESS_DENIED"],
+    ["InvalidAccessKeyId", "R2_INVALID_ACCESS_KEY"],
+    ["InvalidToken", "R2_INVALID_TOKEN"],
+    ["ExpiredToken", "R2_INVALID_TOKEN"],
+    ["NoSuchBucket", "R2_BUCKET_NOT_FOUND"],
+    ["RequestExpired", "R2_REQUEST_EXPIRED"],
+    ["UnexpectedProviderCode", "R2_OTHER_ERROR"],
+  ] as const)("redacts R2 provider code %s to %s", (providerCode, expected) => {
+    expect(classifyR2ErrorResponse(`<Error><Code>${providerCode}</Code><Message>sensitive</Message></Error>`))
+      .toBe(expected);
+  });
+
+  it("captures only the safe R2 classification from an HTTP error body", async () => {
+    vi.stubGlobal("XMLHttpRequest", FakeXhr);
+    const pending = uploadDirectlyToStorage({
+      url: "https://signed.invalid/private?signature=must-not-leak",
+      file: new Blob(["1234"]),
+      requiredHeaders: { "content-type": "image/png" },
+    });
+    FakeXhr.latest.status = 403;
+    FakeXhr.latest.responseText = "<Error><Code>SignatureDoesNotMatch</Code><Message>private detail</Message></Error>";
+    FakeXhr.latest.listeners.get("load")?.();
+
+    const error = await pending.catch((reason: unknown) => reason);
+    expect(error).toMatchObject({
+      code: "DIRECT_UPLOAD_HTTP_ERROR",
+      httpStatus: 403,
+      providerCode: "R2_SIGNATURE_MISMATCH",
+    });
+    expect(JSON.stringify(error)).not.toContain("private detail");
+    expect(String((error as Error).message)).not.toContain("signature=");
   });
 });

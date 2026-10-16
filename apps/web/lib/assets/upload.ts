@@ -48,7 +48,7 @@ function flowError(stage: AssetUploadStage, error: unknown): AssetUploadFlowErro
     return new AssetUploadFlowError(stage, error.code, error.status, error.retryable);
   }
   if (error instanceof DirectUploadError) {
-    return new AssetUploadFlowError(stage, error.code, error.httpStatus);
+    return new AssetUploadFlowError(stage, error.providerCode ?? error.code, error.httpStatus);
   }
   return new AssetUploadFlowError(stage, `ASSET_${stage.toUpperCase()}_FAILED`);
 }
@@ -76,6 +76,15 @@ export function uploadErrorMessage(error: unknown): string {
   }
   if (error.code === "DIRECT_UPLOAD_HTTP_ERROR") {
     return "Kho lưu trữ đã từ chối yêu cầu PUT đã ký.";
+  }
+  if (error.code === "R2_SIGNATURE_MISMATCH") {
+    return "Kho lưu trữ từ chối chữ ký PUT. Vui lòng gửi mã lỗi an toàn cho quản trị viên.";
+  }
+  if (["R2_ACCESS_DENIED", "R2_INVALID_ACCESS_KEY", "R2_INVALID_TOKEN", "R2_BUCKET_NOT_FOUND"].includes(error.code)) {
+    return "Kho lưu trữ từ chối quyền truy cập. Vui lòng gửi mã lỗi an toàn cho quản trị viên.";
+  }
+  if (error.code === "R2_REQUEST_EXPIRED") {
+    return "Yêu cầu tải lên đã hết hạn. Hãy thử lại.";
   }
   return assetErrorMessage(new AssetClientError(
     error.code,

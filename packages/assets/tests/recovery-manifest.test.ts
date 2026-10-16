@@ -147,6 +147,18 @@ describe("durable recovery manifest on the real filesystem", () => {
       .rejects.toThrow("RECOVERY_MANIFEST_UNSAFE_FIELDS");
   });
 
+  it("accepts staging recovery identities but rejects production object keys", async () => {
+    const path = await manifestPath();
+    const staging = fixture();
+    staging.objects[0]!.key = staging.objects[0]!.key.replace(/^development\//, "staging/");
+    await writeDurableAtomicManifest(path, staging);
+    await expect(readRecoveryManifest(path)).resolves.toEqual(staging);
+
+    const production = fixture();
+    production.objects[0]!.key = production.objects[0]!.key.replace(/^development\//, "production/");
+    await expect(writeDurableAtomicManifest(path, production)).rejects.toThrow("RECOVERY_MANIFEST_INVALID");
+  });
+
   it("retains unresolved manifests and removes only explicitly resolved obligations", async () => {
     const path = await manifestPath();
     await writeDurableAtomicManifest(path, fixture());

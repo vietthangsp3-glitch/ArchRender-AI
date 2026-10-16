@@ -30,7 +30,7 @@ type RenameOperation = typeof rename;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const runIdPattern = /^m2dd2-r2-[0-9]+-[0-9a-f-]{36}$/i;
 const checksumPattern = /^[0-9a-f]{64}$/i;
-const objectKeyPattern = /^development\/owners\/[0-9a-f-]{36}\/projects\/[0-9a-f-]{36}\/assets\/[0-9a-f-]{36}\/(?:staging\/|original\/|derivatives\/(?:grid|detail)\/)?[0-9a-f]{32}$/i;
+const objectKeyPattern = /^(?:development|staging)\/owners\/[0-9a-f-]{36}\/projects\/[0-9a-f-]{36}\/assets\/[0-9a-f-]{36}\/(?:staging\/|original\/|derivatives\/(?:grid|detail)\/)?[0-9a-f]{32}$/i;
 
 function pathString(input: PathInput) {
   return input instanceof URL ? fileURLToPath(input) : input;

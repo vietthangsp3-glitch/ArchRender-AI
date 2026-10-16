@@ -16,13 +16,38 @@ export type DirectUploadErrorCode =
   | "DIRECT_UPLOAD_NETWORK_ERROR"
   | "DIRECT_UPLOAD_TIMEOUT";
 
+export type DirectUploadProviderCode =
+  | "R2_SIGNATURE_MISMATCH"
+  | "R2_ACCESS_DENIED"
+  | "R2_INVALID_ACCESS_KEY"
+  | "R2_INVALID_TOKEN"
+  | "R2_BUCKET_NOT_FOUND"
+  | "R2_REQUEST_EXPIRED"
+  | "R2_OTHER_ERROR";
+
 export class DirectUploadError extends Error {
   constructor(
     public readonly code: DirectUploadErrorCode,
     public readonly httpStatus?: number,
+    public readonly providerCode?: DirectUploadProviderCode,
   ) {
     super(code);
     this.name = "DirectUploadError";
+  }
+}
+
+export function classifyR2ErrorResponse(responseText: string): DirectUploadProviderCode {
+  const code = responseText.slice(0, 4_096).match(/<Code>\s*([A-Za-z0-9]+)\s*<\/Code>/)?.[1];
+  switch (code) {
+    case "SignatureDoesNotMatch": return "R2_SIGNATURE_MISMATCH";
+    case "AccessDenied": return "R2_ACCESS_DENIED";
+    case "InvalidAccessKeyId": return "R2_INVALID_ACCESS_KEY";
+    case "InvalidToken":
+    case "ExpiredToken": return "R2_INVALID_TOKEN";
+    case "NoSuchBucket": return "R2_BUCKET_NOT_FOUND";
+    case "RequestExpired":
+    case "RequestTimeTooSkewed": return "R2_REQUEST_EXPIRED";
+    default: return "R2_OTHER_ERROR";
   }
 }
 
@@ -53,6 +78,7 @@ export function uploadDirectlyToStorage(input: DirectUploadInput): Promise<Direc
         reject(new DirectUploadError(
           "DIRECT_UPLOAD_HTTP_ERROR",
           request.status >= 100 && request.status <= 599 ? request.status : undefined,
+          classifyR2ErrorResponse(request.responseText),
         ));
       }
     });

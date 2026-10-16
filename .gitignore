@@ -16,6 +16,7 @@ skills-lock.json
 # Local and real-storage acceptance state. These files may contain exact
 # recovery identities and must never be published.
 **/.r2-acceptance/
+**/.r2-put403-probe/
 **/.recovery/
 *.recovery-manifest.json
 

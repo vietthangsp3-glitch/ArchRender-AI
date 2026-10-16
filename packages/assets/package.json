@@ -10,6 +10,8 @@
     "acceptance:r2": "tsx scripts/real-r2-immutable-acceptance.ts",
     "acceptance:r2:remaining": "tsx scripts/real-r2-immutable-acceptance.ts --remaining",
     "probe:r2-finalization": "tsx scripts/real-r2-immutable-acceptance.ts --probe",
+    "probe:r2-put403": "tsx scripts/r2-put403-diagnostic.ts",
+    "probe": "tsx scripts/r2-put403-diagnostic.ts",
     "cleanup": "tsx scripts/cleanup-assets.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude tests/integration/**",

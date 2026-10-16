@@ -108,6 +108,10 @@ describe("secure local asset upload orchestration", () => {
       mocks.initiate.mockResolvedValue({ assetId, upload: { url: "https://signed.invalid/redacted", requiredHeaders: {} } });
       mocks.upload.mockRejectedValue(new DirectUploadError("DIRECT_UPLOAD_NETWORK_ERROR"));
     }, "DIRECT_UPLOAD_NETWORK_ERROR", undefined],
+    ["put", () => {
+      mocks.initiate.mockResolvedValue({ assetId, upload: { url: "https://signed.invalid/redacted", requiredHeaders: {} } });
+      mocks.upload.mockRejectedValue(new DirectUploadError("DIRECT_UPLOAD_HTTP_ERROR", 403, "R2_SIGNATURE_MISMATCH"));
+    }, "R2_SIGNATURE_MISMATCH", 403],
     ["complete", () => {
       mocks.initiate.mockResolvedValue({ assetId, upload: { url: "https://signed.invalid/redacted", requiredHeaders: {} } });
       mocks.upload.mockResolvedValue({});
