@@ -23,6 +23,8 @@ describe("Docker V4 static security contract", () => {
     expect(compose.match(/^    read_only: true$/gm)).toHaveLength(2);
     expect(compose.match(/no-new-privileges:true/g)).toHaveLength(2);
     expect(compose).toContain("internal: true");
+    expect(compose).toContain("gateway_ingress:");
+    expect(compose).toMatch(/ai-gateway:[\s\S]*?networks:\s*\n\s*- engine_private\s*\n\s*- gateway_ingress/);
     expect(compose).toContain("engine_state");
   });
 

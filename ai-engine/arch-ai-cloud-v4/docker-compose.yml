@@ -75,6 +75,7 @@ services:
       - "${AI_ENGINE_BIND_ADDRESS:-127.0.0.1}:${AI_ENGINE_GATEWAY_PORT:-8189}:8080"
     networks:
       - engine_private
+      - gateway_ingress
     volumes:
       - type: volume
         source: engine_input
@@ -104,6 +105,8 @@ services:
 networks:
   engine_private:
     internal: true
+  gateway_ingress:
+    driver: bridge
 
 volumes:
   engine_input:

@@ -5,6 +5,10 @@ V4 is isolated from `arch-ai-cloud-v3`. It exposes only an authenticated gateway
 nodes disabled. The GPU runtime receives no database, R2, user-session, or browser
 credentials.
 
+ComfyUI joins only `engine_private`. The gateway joins that network plus
+`gateway_ingress`; the second network is required for Docker Desktop to honor the
+localhost port binding while keeping the ComfyUI service itself unpublishable.
+
 ## Safety defaults
 
 - All model entries start as `PENDING_VERIFICATION`; the application refuses them.
@@ -13,7 +17,8 @@ credentials.
 - Input/output names are local basenames; URLs, traversal, and arbitrary commands are rejected.
 - Gateway execution identities are deterministic per job generation and persisted atomically on a dedicated volume.
 - Containers run as UID/GID 10001, drop Linux capabilities, use read-only roots, bounded tmpfs,
-  log rotation, health checks, explicit stop windows, and a single private network.
+  log rotation, health checks, explicit stop windows, a private engine network, and a separate
+  gateway ingress network.
 - The Compose stack defaults to `restart: no` so an operator retains the billing stop switch.
 
 ## Operator preparation (no cloud action is performed by this repository)
